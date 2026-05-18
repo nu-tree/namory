@@ -1,4 +1,6 @@
 import Fastify from "fastify";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { buildMcpServer } from "./mcp.js";
 
 const app = Fastify({ logger: true });
 
@@ -15,10 +17,38 @@ app.addHook("onRequest", async (req, reply) => {
   }
 });
 
-// TODO(Phase 0 스파이크): MCP Streamable HTTP transport + 툴 5종을 여기 마운트.
-// 설치된 @modelcontextprotocol/sdk 버전에 맞춰 배선 확정.
-app.all("/mcp", async (_req, reply) => {
-  return reply.code(501).send({ error: "not implemented yet" });
+// MCP Streamable HTTP — stateless 모드 (요청마다 새 서버+트랜스포트).
+// 단일 사용자·멀티 디바이스·멀티 인스턴스라 세션 친화성이 불필요 → 가장 견고.
+app.all("/mcp", async (req, reply) => {
+  // 트랜스포트가 reply.raw 에 직접 쓰므로 Fastify 응답 관리를 넘긴다.
+  reply.hijack();
+
+  const server = buildMcpServer();
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: undefined,
+  });
+  reply.raw.on("close", () => {
+    void transport.close();
+    void server.close();
+  });
+
+  try {
+    await server.connect(transport);
+    // Fastify 가 이미 본문을 파싱했으므로 req.body 를 그대로 넘겨 재파싱 방지.
+    await transport.handleRequest(req.raw, reply.raw, req.body);
+  } catch (err) {
+    app.log.error(err);
+    if (!reply.raw.headersSent) {
+      reply.raw.writeHead(500, { "content-type": "application/json" });
+      reply.raw.end(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          error: { code: -32603, message: "internal error" },
+          id: null,
+        }),
+      );
+    }
+  }
 });
 
 const port = Number(process.env.PORT) || 3000;

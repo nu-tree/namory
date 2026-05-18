@@ -7,9 +7,9 @@
     "namory": "dist/index.js"
   },
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx watch --env-file-if-exists=.env src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
+    "start": "node --env-file-if-exists=.env dist/index.js",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate"
   },
@@ -17,7 +17,8 @@
     "@modelcontextprotocol/sdk": "^1.0.0",
     "drizzle-orm": "^0.36.0",
     "fastify": "^5.0.0",
-    "postgres": "^3.4.0"
+    "postgres": "^3.4.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
