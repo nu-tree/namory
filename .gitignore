@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+*.log
+
+# Claude Code 워크트리/로컬 (레포에 커밋 X)
+.claude/
+
+
