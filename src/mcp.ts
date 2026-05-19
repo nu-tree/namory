@@ -24,9 +24,9 @@ export function buildMcpServer(): McpServer {
   server.registerTool(
     "save",
     {
-      title: "기억 저장",
+      title: "기억 저장 (save / store memory)",
       description:
-        "결정·배움·아이디어·감정·사람에 대한 기록을 임베딩과 함께 저장한다.",
+        "결정·배움·아이디어·감정·사람에 대한 기록(memory/note)을 임베딩과 함께 저장한다 (save / store / remember).",
       inputSchema: {
         content: z.string().min(1).describe("저장할 내용 (한 문장 이상 권장)"),
         category: category.optional().describe("분류 (선택)"),
@@ -42,8 +42,9 @@ export function buildMcpServer(): McpServer {
   server.registerTool(
     "recall",
     {
-      title: "의미 검색",
-      description: "질의와 의미적으로 가까운 기억을 벡터 검색으로 찾는다.",
+      title: "의미 검색 (recall / semantic search)",
+      description:
+        "질의와 의미적으로 가까운 기억(memory)을 벡터 검색으로 찾는다 (recall / search / find).",
       inputSchema: {
         query: z.string().min(1).describe("찾고 싶은 내용/주제"),
         limit: z
@@ -61,8 +62,9 @@ export function buildMcpServer(): McpServer {
   server.registerTool(
     "recent",
     {
-      title: "최근 기억",
-      description: "최근 N일간의 기억을 시간 역순으로 가져온다.",
+      title: "최근 기억 (recent memories)",
+      description:
+        "최근 N일간의 기억(memory)을 시간 역순으로 가져온다 (recent / latest / history).",
       inputSchema: {
         days: z
           .number()
@@ -86,9 +88,9 @@ export function buildMcpServer(): McpServer {
   server.registerTool(
     "pattern",
     {
-      title: "패턴 익스플로러",
+      title: "패턴 익스플로러 (pattern explorer)",
       description:
-        "기간/카테고리로 묶은 raw 기억을 시간순으로 반환한다. 패턴 해석·요약은 클라이언트(Claude)가 수행한다.",
+        "기간/카테고리로 묶은 raw 기억(memory)을 시간순으로 반환한다 (pattern / trend / explore). 패턴 해석·요약은 클라이언트(Claude)가 수행한다.",
       inputSchema: {
         period: z
           .enum(["week", "month"])
@@ -107,8 +109,9 @@ export function buildMcpServer(): McpServer {
   server.registerTool(
     "profile_show",
     {
-      title: "자기 이해 조회",
-      description: "누적된 자기 이해 프로필(섹션별)을 조회한다.",
+      title: "자기 이해 조회 (profile show)",
+      description:
+        "누적된 자기 이해 프로필(self-understanding profile)을 섹션별로 조회한다 (profile / show / get).",
       inputSchema: {},
     },
     async () => ok(await profileShow()),
@@ -117,9 +120,9 @@ export function buildMcpServer(): McpServer {
   server.registerTool(
     "profile_update",
     {
-      title: "자기 이해 갱신",
+      title: "자기 이해 갱신 (profile update)",
       description:
-        "Claude가 누적 기억을 보고 작성한 섹션 텍스트를 저장한다 (서버는 저장만 — 작성은 Claude).",
+        "Claude가 누적 기억을 보고 작성한 섹션 텍스트를 저장한다 (profile / update). 서버는 저장만 — 작성은 Claude.",
       inputSchema: {
         section: z
           .string()
