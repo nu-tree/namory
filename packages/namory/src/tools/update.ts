@@ -10,6 +10,7 @@ export async function update(args: {
   content?: string;
   category?: Category;
   done?: boolean;
+  project?: string;
 }) {
   const set: Record<string, unknown> = {};
 
@@ -18,6 +19,8 @@ export async function update(args: {
     set.embedding = await embed(args.content, "document");
   }
   if (args.category !== undefined) set.category = args.category;
+  // 빈 문자열이면 개인 기억(null)으로 되돌린다.
+  if (args.project !== undefined) set.project = args.project || null;
   if (args.done !== undefined) {
     // 기존 metadata를 보존하며 done/doneAt만 덮어쓴다 (jsonb || 병합)
     const patch = {
@@ -28,7 +31,9 @@ export async function update(args: {
   }
 
   if (Object.keys(set).length === 0) {
-    throw new Error("수정할 필드가 없습니다 (content / category / done 중 하나 필요)");
+    throw new Error(
+      "수정할 필드가 없습니다 (content / category / done / project 중 하나 필요)",
+    );
   }
 
   const [row] = await db

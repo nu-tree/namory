@@ -6,6 +6,7 @@ export async function save(args: {
   content: string;
   category?: Category;
   source?: string;
+  project?: string;
 }) {
   const embedding = await embed(args.content, "document");
   // 할 일은 "상태"가 있다 → metadata에 done 플래그를 심어 둔다 (열림으로 시작).
@@ -15,6 +16,7 @@ export async function save(args: {
     .values({
       content: args.content,
       category: args.category ?? null,
+      project: args.project ?? null,
       source: args.source ?? null,
       metadata,
       embedding,

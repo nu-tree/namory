@@ -11,6 +11,12 @@ import { remove } from "./tools/remove.js";
 import { todos } from "./tools/todos.js";
 
 const category = z.enum(CATEGORIES);
+// 프로젝트 스코프(선택). 저장 시 태그, 조회 시 "그 프로젝트 + 개인 기억"으로 좁힌다.
+const project = z
+  .string()
+  .min(1)
+  .optional()
+  .describe("프로젝트 스코프 (선택). 예: navis. 조회 시 해당 프로젝트+개인 기억만.");
 
 // 서버는 "멍청하게": raw 데이터를 JSON 텍스트로만 돌려준다.
 // 패턴 해석·요약·프로파일 작성 등 지능은 클라이언트(Claude)가 수행 → 서버 LLM 호출 0.
@@ -33,6 +39,7 @@ export function buildMcpServer(): McpServer {
       inputSchema: {
         content: z.string().min(1).describe("저장할 내용 (한 문장 이상 권장)"),
         category: category.optional().describe("분류 (선택). todo = 할 일"),
+        project,
         source: z
           .string()
           .optional()
@@ -58,6 +65,7 @@ export function buildMcpServer(): McpServer {
           .optional()
           .describe("최대 개수 (기본 5)"),
         category: category.optional().describe("분류 필터 (선택)"),
+        project,
       },
     },
     async (args) => ok(await recall(args)),
@@ -85,6 +93,7 @@ export function buildMcpServer(): McpServer {
           .optional()
           .describe("최대 개수 (기본 50)"),
         category: category.optional().describe("분류 필터 (선택)"),
+        project,
       },
     },
     async (args) => ok(await recent(args)),
@@ -102,12 +111,13 @@ export function buildMcpServer(): McpServer {
           .optional()
           .describe("집계 기간 (기본 week)"),
         category: category.optional().describe("분류 필터 (선택)"),
+        project,
       },
     },
-    async ({ period, category }) => {
+    async ({ period, category, project }) => {
       const days = period === "month" ? 30 : 7;
       const since = new Date(Date.now() - days * 86_400_000);
-      return ok(await pattern({ since, category }));
+      return ok(await pattern({ since, category, project }));
     },
   );
 
@@ -153,6 +163,10 @@ export function buildMcpServer(): McpServer {
           .boolean()
           .optional()
           .describe("할 일 완료 여부 (true=완료, false=다시 열기)"),
+        project: z
+          .string()
+          .optional()
+          .describe("프로젝트 재태깅 (빈 문자열이면 개인 기억으로 되돌림)"),
       },
     },
     async (args) => ok(await update(args)),
@@ -189,6 +203,7 @@ export function buildMcpServer(): McpServer {
           .max(200)
           .optional()
           .describe("최대 개수 (기본 50)"),
+        project,
       },
     },
     async (args) => ok(await todos(args)),
