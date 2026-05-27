@@ -6,7 +6,9 @@ settings:
 
 importers:
 
-  .:
+  .: {}
+
+  packages/namory:
     dependencies:
       '@modelcontextprotocol/sdk':
         specifier: ^1.0.0

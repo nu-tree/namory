@@ -1,29 +1,16 @@
 {
-  "name": "namory-mcp",
-  "version": "0.1.0",
-  "description": "namory — 개인용 제2의 뇌 MCP 서버",
+  "name": "namory-monorepo",
+  "version": "0.0.0",
+  "description": "제2의 뇌 시스템 모노레포 — namory(저장/회상) + 향후 agent 등",
+  "private": true,
   "type": "module",
-  "bin": {
-    "namory": "dist/index.js"
-  },
   "scripts": {
-    "dev": "tsx watch --env-file-if-exists=.env src/index.ts",
-    "build": "tsc",
-    "start": "node --env-file-if-exists=.env dist/index.js",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "build": "pnpm -r build",
+    "dev": "pnpm --filter namory-mcp dev",
+    "namory": "pnpm --filter namory-mcp"
   },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
-    "drizzle-orm": "^0.36.0",
-    "fastify": "^5.0.0",
-    "postgres": "^3.4.0",
-    "zod": "^4.4.3"
+  "engines": {
+    "node": ">=22"
   },
-  "devDependencies": {
-    "@types/node": "^22.0.0",
-    "drizzle-kit": "^0.28.0",
-    "tsx": "^4.19.0",
-    "typescript": "^5.6.0"
-  }
+  "packageManager": "pnpm@11.0.8"
 }

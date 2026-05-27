@@ -1,10 +1,10 @@
-node_modules
-dist
+**/node_modules
+**/dist
 .git
 .gitignore
-.env
-.env.*
-!.env.example
+**/.env
+**/.env.*
+!**/.env.example
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -12,7 +12,7 @@ pnpm-debug.log*
 .DS_Store
 .vscode
 .idea
+.claude
 README.md
-Dockerfile
+**/Dockerfile
 .dockerignore
-pnpm-workspace.yaml
