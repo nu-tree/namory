@@ -26,7 +26,9 @@ COPY packages/namory ./packages/namory
 RUN pnpm --filter namory-mcp build
 
 # 런타임 의존성만 담은 standalone 산출물 (/app)
-RUN pnpm --filter namory-mcp deploy --prod /app
+# pnpm v10+는 deploy 시 inject-workspace-packages를 요구 → 워크스페이스 의존성이
+# 없으므로 --legacy(구 알고리즘)로 추출한다. shared 패키지 의존이 생기면 재검토.
+RUN pnpm --filter namory-mcp deploy --prod --legacy /app
 
 # ============================================
 # Stage 2: runner — 최종 실행 이미지
