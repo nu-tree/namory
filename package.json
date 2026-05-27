@@ -7,7 +7,9 @@
   "scripts": {
     "build": "pnpm -r build",
     "dev": "pnpm --filter namory-mcp dev",
-    "namory": "pnpm --filter namory-mcp"
+    "dev:agent": "pnpm --filter namory-agent dev",
+    "namory": "pnpm --filter namory-mcp",
+    "agent": "pnpm --filter namory-agent"
   },
   "engines": {
     "node": ">=22"

@@ -1,0 +1,20 @@
+{
+  "name": "namory-agent",
+  "version": "0.1.0",
+  "description": "namory agent — 디스코드 ↔ Claude 양방향 에이전트",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=.env src/index.ts",
+    "build": "tsc",
+    "start": "node --env-file-if-exists=.env dist/index.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.152",
+    "discord.js": "^14.26.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}
