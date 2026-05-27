@@ -6,9 +6,43 @@ import {
   type Message,
 } from "discord.js";
 import { config } from "./config.js";
-import { askClaude } from "./claude.js";
+import { askClaude, type InputImage } from "./claude.js";
 
 const DISCORD_MAX = 2000;
+
+// Anthropic이 받는 이미지 타입. 그 외 첨부(pdf 등)는 무시한다.
+const ALLOWED_IMAGE_TYPES = new Set<InputImage["mediaType"]>([
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+]);
+// 이미지당 상한(바이트). API 제한(~5MB) 안쪽으로 잡아 호출 실패를 막는다.
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+
+// 메시지의 첨부 중 이미지를 내려받아 base64로 만든다. 타입·용량 안 맞으면 건너뛴다.
+async function collectImages(message: Message): Promise<InputImage[]> {
+  const images: InputImage[] = [];
+  for (const att of message.attachments.values()) {
+    const ct = att.contentType?.split(";")[0]?.trim() as
+      | InputImage["mediaType"]
+      | undefined;
+    if (!ct || !ALLOWED_IMAGE_TYPES.has(ct)) continue;
+    if (att.size > MAX_IMAGE_BYTES) {
+      console.warn(`[discord] 이미지 용량 초과로 건너뜀: ${att.size}B`);
+      continue;
+    }
+    try {
+      const res = await fetch(att.url);
+      if (!res.ok) continue;
+      const data = Buffer.from(await res.arrayBuffer()).toString("base64");
+      images.push({ mediaType: ct, data });
+    } catch (err) {
+      console.error("[discord] 이미지 다운로드 실패:", err);
+    }
+  }
+  return images;
+}
 
 // 채널(DM 포함)별 진행 중인 대화 세션. in-memory라 재시작하면 사라진다(의도된 것 —
 // 영속 맥락은 namory가 담당). contextTokens가 한도를 넘으면 다음 메시지에서 새 세션.
@@ -36,7 +70,9 @@ async function handleMessage(message: Message): Promise<void> {
   if (!config.allowedUserIds.includes(message.author.id)) return;
 
   const prompt = message.content.trim();
-  if (!prompt) return;
+  const images = await collectImages(message);
+  // 텍스트도 이미지도 없으면 무시(이미지만 있는 메시지는 처리).
+  if (!prompt && images.length === 0) return;
 
   const channelId = message.channelId;
 
@@ -70,6 +106,7 @@ async function handleMessage(message: Message): Promise<void> {
     const { text, sessionId, contextTokens, saved } = await askClaude(
       prompt,
       resumeId,
+      images,
     );
     sessions.set(channelId, { sessionId, contextTokens });
 

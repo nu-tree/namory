@@ -1,5 +1,12 @@
-import { query } from "@anthropic-ai/claude-agent-sdk";
+import { query, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import { config } from "./config.js";
+
+// 디스코드 첨부 이미지를 Claude에 넘길 때 쓰는 형태. data는 base64(접두사 없음).
+// media_type은 Anthropic이 받는 4종으로 한정한다.
+export interface InputImage {
+  mediaType: "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+  data: string;
+}
 
 // namory MCP 서버에서 navis에 허용할 도구.
 // 읽기(recall/recent/profile_show/pattern/todos) + 추가(save) + 수정(update).
@@ -28,20 +35,28 @@ export interface AskResult {
 
 // 프롬프트 한 개를 Claude에 넣고 답변 + 세션 정보를 받는다.
 // resumeSessionId 가 있으면 그 대화를 이어받는다(멀티턴). 없으면 새 대화.
+// images 가 있으면 텍스트+이미지 content block을 가진 user 메시지로 넘긴다
+// (문자열 prompt로는 이미지를 못 실어서 streaming-input 형태를 쓴다).
 //
 // 두뇌는 Claude Code 구독 OAuth 토큰(SDK가 process.env.CLAUDE_CODE_OAUTH_TOKEN을
 // 자동 사용)으로 돌고, namory를 외부 MCP 서버로 붙여 recall/save 도구를 쥐여준다.
 export async function askClaude(
   prompt: string,
   resumeSessionId?: string,
+  images: InputImage[] = [],
 ): Promise<AskResult> {
   let text = "";
   let sessionId = "";
   let contextTokens = 0;
   let saved = false;
 
+  // 이미지가 있으면 content block 배열로 구성해 user 메시지 하나를 yield 한다.
+  // 없으면 기존처럼 문자열 prompt 그대로(가장 단순한 경로).
+  const promptInput =
+    images.length > 0 ? buildImageMessage(prompt, images) : prompt;
+
   for await (const message of query({
-    prompt,
+    prompt: promptInput,
     options: {
       model: config.model,
       systemPrompt: config.systemPrompt,
@@ -94,4 +109,29 @@ export async function askClaude(
   }
 
   return { text: text.trim() || "(빈 응답)", sessionId, contextTokens, saved };
+}
+
+// 텍스트(있으면) + 이미지들을 하나의 user 메시지로 묶어 yield 하는 async generator.
+// query()의 streaming-input 모드는 prompt로 AsyncIterable<SDKUserMessage>를 받는다.
+async function* buildImageMessage(
+  text: string,
+  images: InputImage[],
+): AsyncGenerator<SDKUserMessage> {
+  const content = [
+    ...(text ? [{ type: "text" as const, text }] : []),
+    ...images.map((img) => ({
+      type: "image" as const,
+      source: {
+        type: "base64" as const,
+        media_type: img.mediaType,
+        data: img.data,
+      },
+    })),
+  ];
+
+  yield {
+    type: "user",
+    message: { role: "user", content },
+    parent_tool_use_id: null,
+  };
 }
