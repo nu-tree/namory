@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { buildMcpServer } from "./mcp.js";
+import { listCrons, createCron, deleteCron } from "./tools/cron.js";
 
 const app = Fastify({
   logger: {
@@ -28,7 +29,8 @@ app.get("/health", async () => ({ ok: true }));
 //  2) ?token=<토큰> 쿼리 파라미터    — Claude 커스텀 커넥터 UI엔 헤더/토큰 입력란이
 //     없어 URL에 실어야 함. 토큰은 위 로거에서 마스킹됨.
 app.addHook("onRequest", async (req, reply) => {
-  if (!req.url.startsWith("/mcp")) return;
+  // /mcp(도구)와 /crons(스케줄 CRUD) 둘 다 토큰으로 보호. 그 외(/health)는 공개.
+  if (!req.url.startsWith("/mcp") && !req.url.startsWith("/crons")) return;
   const headerToken = req.headers.authorization?.replace(/^Bearer\s+/i, "");
   const queryToken =
     new URL(req.url, "http://localhost").searchParams.get("token") ?? undefined;
@@ -69,6 +71,34 @@ app.all("/mcp", async (req, reply) => {
         }),
       );
     }
+  }
+});
+
+// 크론 CRUD (navis 스케줄러/대화 도구가 사용). MCP가 아닌 단순 REST —
+// navis가 에이전트 턴 밖(부팅·reconcile)에서도 조회해야 해서 일반 HTTP로 노출.
+app.get("/crons", async () => ({ crons: await listCrons() }));
+
+app.post("/crons", async (req, reply) => {
+  const b = (req.body ?? {}) as Record<string, unknown>;
+  const title = typeof b.title === "string" ? b.title.trim() : "";
+  const schedule = typeof b.schedule === "string" ? b.schedule.trim() : "";
+  const prompt = typeof b.prompt === "string" ? b.prompt.trim() : "";
+  const channelId = typeof b.channelId === "string" ? b.channelId.trim() : "";
+  const timezone = typeof b.timezone === "string" ? b.timezone.trim() : undefined;
+  if (!title || !schedule || !prompt || !channelId) {
+    return reply
+      .code(400)
+      .send({ error: "title, schedule, prompt, channelId 가 모두 필요합니다" });
+  }
+  const row = await createCron({ title, schedule, prompt, channelId, timezone });
+  return reply.code(201).send(row);
+});
+
+app.delete<{ Params: { id: string } }>("/crons/:id", async (req, reply) => {
+  try {
+    return await deleteCron({ id: req.params.id });
+  } catch {
+    return reply.code(404).send({ error: "해당 id의 크론이 없습니다" });
   }
 });
 

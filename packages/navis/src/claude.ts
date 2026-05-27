@@ -1,5 +1,6 @@
 import { query, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import { config } from "./config.js";
+import { buildCronTools, CRON_TOOL_NAMES } from "./cron-tools.js";
 
 // 디스코드 첨부 이미지를 Claude에 넘길 때 쓰는 형태. data는 base64(접두사 없음).
 // media_type은 Anthropic이 받는 4종으로 한정한다.
@@ -44,6 +45,7 @@ export async function askClaude(
   prompt: string,
   resumeSessionId?: string,
   images: InputImage[] = [],
+  channelId?: string,
 ): Promise<AskResult> {
   let text = "";
   let sessionId = "";
@@ -54,6 +56,10 @@ export async function askClaude(
   // 없으면 기존처럼 문자열 prompt 그대로(가장 단순한 경로).
   const promptInput =
     images.length > 0 ? buildImageMessage(prompt, images) : prompt;
+
+  // 채널 id가 있으면(=실제 대화) 그 채널에 묶인 in-process 크론 도구를 붙인다.
+  // 크론 발동 결과는 이 채널로 가도록 channelId를 클로저로 주입한다.
+  const cronServer = channelId ? buildCronTools(channelId) : undefined;
 
   for await (const message of query({
     prompt: promptInput,
@@ -69,9 +75,11 @@ export async function askClaude(
           // 도구가 tool-search 뒤로 deferred 되지 않게 항상 로드.
           alwaysLoad: true,
         },
+        ...(cronServer ? { cron: cronServer } : {}),
       },
-      // 허용 도구를 namory로 한정 → 파일·배시 등 안 붙고 권한 프롬프트도 안 뜸.
-      allowedTools: NAMORY_TOOLS,
+      // 자동 승인 도구: namory + (대화 중이면) 크론 도구. WebSearch 등 내장 도구는
+      // 별도 제한을 안 걸어 그대로 사용 가능.
+      allowedTools: [...NAMORY_TOOLS, ...(cronServer ? CRON_TOOL_NAMES : [])],
       // 로컬 설정(CLAUDE.md, settings.json) 무시.
       settingSources: [],
       // 도구 호출 루프 여유.

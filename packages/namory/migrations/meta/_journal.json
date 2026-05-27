@@ -15,6 +15,13 @@
       "when": 1779888463758,
       "tag": "0001_stormy_venom",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779889503580,
+      "tag": "0002_shocking_revanche",
+      "breakpoints": true
     }
   ]
 }

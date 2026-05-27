@@ -49,7 +49,7 @@ async function collectImages(message: Message): Promise<InputImage[]> {
 const sessions = new Map<string, { sessionId: string; contextTokens: number }>();
 
 // 디스코드 메시지 길이 제한(2000자)에 맞춰 자른다. 단어/줄 경계를 최대한 보존.
-function chunk(text: string): string[] {
+export function chunk(text: string): string[] {
   if (text.length <= DISCORD_MAX) return [text];
   const parts: string[] = [];
   let rest = text;
@@ -107,6 +107,7 @@ async function handleMessage(message: Message): Promise<void> {
       prompt,
       resumeId,
       images,
+      channelId,
     );
     sessions.set(channelId, { sessionId, contextTokens });
 
