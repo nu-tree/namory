@@ -3,9 +3,9 @@
 # 모노레포 빌드 — 빌드 컨텍스트는 반드시 "레포 루트"여야 한다.
 # (pnpm-lock.yaml / pnpm-workspace.yaml 이 루트에 단 하나 존재하기 때문)
 #
-#   docker build -f packages/agent/Dockerfile -t namory-agent .
+#   docker build -f packages/navis/Dockerfile -t navis .
 #
-# pnpm deploy 로 namory-agent 패키지만 의존성과 함께 standalone 디렉터리로 추출한다.
+# pnpm deploy 로 navis 패키지만 의존성과 함께 standalone 디렉터리로 추출한다.
 
 # ============================================
 # Stage 1: build — 의존성 설치 + 컴파일 + deploy
@@ -17,18 +17,18 @@ RUN corepack enable && corepack prepare pnpm@11.0.8 --activate
 
 # 워크스페이스 매니페스트 + 대상 패키지 매니페스트만 먼저 복사 (레이어 캐시)
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
-COPY packages/agent/package.json ./packages/agent/package.json
+COPY packages/navis/package.json ./packages/navis/package.json
 
-RUN pnpm install --frozen-lockfile --filter namory-agent
+RUN pnpm install --frozen-lockfile --filter navis
 
 # 소스 복사 후 빌드
-COPY packages/agent ./packages/agent
-RUN pnpm --filter namory-agent build
+COPY packages/navis ./packages/navis
+RUN pnpm --filter navis build
 
 # 런타임 의존성만 담은 standalone 산출물 (/app)
 # pnpm v10+는 deploy 시 inject-workspace-packages를 요구 → 워크스페이스 의존성이
 # 없으므로 --legacy(구 알고리즘)로 추출한다. shared 패키지 의존이 생기면 재검토.
-RUN pnpm --filter namory-agent deploy --prod --legacy /app
+RUN pnpm --filter navis deploy --prod --legacy /app
 
 # ============================================
 # Stage 2: runner — 최종 실행 이미지

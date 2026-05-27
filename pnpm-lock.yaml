@@ -8,25 +8,6 @@ importers:
 
   .: {}
 
-  packages/agent:
-    dependencies:
-      '@anthropic-ai/claude-agent-sdk':
-        specifier: ^0.3.152
-        version: 0.3.152(@anthropic-ai/sdk@0.98.0(zod@4.4.3))(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(zod@4.4.3)
-      discord.js:
-        specifier: ^14.26.4
-        version: 14.26.4
-    devDependencies:
-      '@types/node':
-        specifier: ^22.0.0
-        version: 22.19.19
-      tsx:
-        specifier: ^4.19.0
-        version: 4.22.1
-      typescript:
-        specifier: ^5.6.0
-        version: 5.9.3
-
   packages/namory:
     dependencies:
       '@modelcontextprotocol/sdk':
@@ -51,6 +32,25 @@ importers:
       drizzle-kit:
         specifier: ^0.28.0
         version: 0.28.1
+      tsx:
+        specifier: ^4.19.0
+        version: 4.22.1
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+
+  packages/navis:
+    dependencies:
+      '@anthropic-ai/claude-agent-sdk':
+        specifier: ^0.3.152
+        version: 0.3.152(@anthropic-ai/sdk@0.98.0(zod@4.4.3))(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(zod@4.4.3)
+      discord.js:
+        specifier: ^14.26.4
+        version: 14.26.4
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.19
       tsx:
         specifier: ^4.19.0
         version: 4.22.1

@@ -2,9 +2,9 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "DOCKERFILE",
-    "dockerfilePath": "packages/agent/Dockerfile",
+    "dockerfilePath": "packages/navis/Dockerfile",
     "watchPatterns": [
-      "packages/agent/**",
+      "packages/navis/**",
       "pnpm-lock.yaml",
       "pnpm-workspace.yaml"
     ]

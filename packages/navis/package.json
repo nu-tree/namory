@@ -1,7 +1,7 @@
 {
-  "name": "namory-agent",
+  "name": "navis",
   "version": "0.1.0",
-  "description": "namory agent — 디스코드 ↔ Claude 양방향 에이전트",
+  "description": "navis — namory의 디스코드 ↔ Claude 양방향 에이전트",
   "type": "module",
   "scripts": {
     "dev": "tsx watch --env-file-if-exists=.env src/index.ts",
