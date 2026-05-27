@@ -70,6 +70,11 @@ export const config = {
   // 모델 (구독 한도에 따라 가용 모델 다름). 기본 sonnet = 비용/품질 균형.
   model: process.env.AGENT_MODEL ?? "claude-sonnet-4-6",
 
+  // 대화 맥락 유지 한도(토큰). 한 대화의 컨텍스트가 이걸 넘으면 다음 메시지부터
+  // 새 세션으로 리셋하고 사용자에게 알린다. 잊힌 맥락은 namory가 받쳐줌.
+  // 기본 100k = sonnet 200k 창의 절반. 모델 한계·SDK 자동압축 전에 우리가 제어.
+  contextTokenLimit: Number(process.env.CONTEXT_TOKEN_LIMIT) || 100000,
+
   // 봇 성격·행동 지침 (코드에 고정).
   systemPrompt: DEFAULT_SYSTEM_PROMPT,
 

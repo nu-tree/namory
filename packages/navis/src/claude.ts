@@ -16,13 +16,26 @@ const NAMORY_TOOLS = [
   "mcp__namory__update",
 ];
 
-// 프롬프트 한 개를 Claude에 넣고 최종 텍스트 답변을 받는다.
+export interface AskResult {
+  text: string;
+  // 이 대화의 세션 id. 다음 메시지에서 resume 으로 넘기면 맥락이 이어진다.
+  sessionId: string;
+  // 직전 턴의 입력 컨텍스트 토큰 수. 이게 임계를 넘으면 다음 대화는 새 세션으로 리셋.
+  contextTokens: number;
+}
+
+// 프롬프트 한 개를 Claude에 넣고 답변 + 세션 정보를 받는다.
+// resumeSessionId 가 있으면 그 대화를 이어받는다(멀티턴). 없으면 새 대화.
 //
 // 두뇌는 Claude Code 구독 OAuth 토큰(SDK가 process.env.CLAUDE_CODE_OAUTH_TOKEN을
 // 자동 사용)으로 돌고, namory를 외부 MCP 서버로 붙여 recall/save 도구를 쥐여준다.
-// → 답변 전 맥락을 끌어오고, 기억할 가치가 있는 건 스스로 저장한다(시스템 프롬프트 규칙).
-export async function askClaude(prompt: string): Promise<string> {
-  let result = "";
+export async function askClaude(
+  prompt: string,
+  resumeSessionId?: string,
+): Promise<AskResult> {
+  let text = "";
+  let sessionId = "";
+  let contextTokens = 0;
 
   for await (const message of query({
     prompt,
@@ -35,28 +48,35 @@ export async function askClaude(prompt: string): Promise<string> {
           type: "http",
           url: config.namoryMcpUrl,
           headers: { Authorization: `Bearer ${config.namoryToken}` },
-          // 도구 4개뿐이라 항상 로드 → 모델이 turn-1부터 recall을 확실히 쓸 수 있게.
+          // 도구가 tool-search 뒤로 deferred 되지 않게 항상 로드.
           alwaysLoad: true,
         },
       },
-      // 허용 도구를 namory 4개로 한정 → 파일·배시 등 일절 안 붙고, 권한 프롬프트도
-      // 안 뜸(allowedTools에 있으면 자동 허용). 헤드리스 서버에 안전.
+      // 허용 도구를 namory로 한정 → 파일·배시 등 안 붙고 권한 프롬프트도 안 뜸.
       allowedTools: NAMORY_TOOLS,
-      // 파일시스템 설정(프로젝트 CLAUDE.md, settings.json) 무시 → 서버에서 깨끗하게.
+      // 로컬 설정(CLAUDE.md, settings.json) 무시.
       settingSources: [],
-      // 도구 호출 → 결과 수신 → 최종 답변까지 멀티턴 루프 여유.
+      // 도구 호출 루프 여유.
       maxTurns: 8,
+      // 이전 대화 이어받기 (있을 때만).
+      ...(resumeSessionId ? { resume: resumeSessionId } : {}),
     },
   })) {
-    // 최종 결과는 type: "result" 메시지의 result 필드에 담겨 온다.
     if (message.type === "result") {
+      sessionId = message.session_id;
+      // 현재 컨텍스트 크기 = 프롬프트 측 토큰 합 (캐시 포함).
+      const u = message.usage as unknown as Record<string, number | undefined>;
+      contextTokens =
+        (u.input_tokens ?? 0) +
+        (u.cache_read_input_tokens ?? 0) +
+        (u.cache_creation_input_tokens ?? 0);
       if (message.subtype === "success") {
-        result = message.result;
+        text = message.result;
       } else {
         throw new Error(`Claude 응답 실패: ${message.subtype}`);
       }
     }
   }
 
-  return result.trim() || "(빈 응답)";
+  return { text: text.trim() || "(빈 응답)", sessionId, contextTokens };
 }

@@ -10,6 +10,10 @@ import { askClaude } from "./claude.js";
 
 const DISCORD_MAX = 2000;
 
+// 채널(DM 포함)별 진행 중인 대화 세션. in-memory라 재시작하면 사라진다(의도된 것 —
+// 영속 맥락은 namory가 담당). contextTokens가 한도를 넘으면 다음 메시지에서 새 세션.
+const sessions = new Map<string, { sessionId: string; contextTokens: number }>();
+
 // 디스코드 메시지 길이 제한(2000자)에 맞춰 자른다. 단어/줄 경계를 최대한 보존.
 function chunk(text: string): string[] {
   if (text.length <= DISCORD_MAX) return [text];
@@ -34,11 +38,39 @@ async function handleMessage(message: Message): Promise<void> {
   const prompt = message.content.trim();
   if (!prompt) return;
 
+  const channelId = message.channelId;
+
+  // 수동 초기화: 진행 중 대화를 끊고 다음 메시지부터 새 세션.
+  if (prompt === "/reset") {
+    sessions.delete(channelId);
+    await message.reply("대화 맥락을 초기화했어요. 새로 시작합니다.");
+    return;
+  }
+
   try {
     // 처리 중 타이핑 표시 (Claude 응답까지 몇 초 걸림).
     if (message.channel.isSendable()) await message.channel.sendTyping();
-    const answer = await askClaude(prompt);
-    for (const part of chunk(answer)) {
+
+    // 직전 세션이 한도 미만이면 이어받고, 넘었으면(또는 없으면) 새 세션.
+    const prev = sessions.get(channelId);
+    const overLimit =
+      prev !== undefined && prev.contextTokens >= config.contextTokenLimit;
+    const resumeId = prev && !overLimit ? prev.sessionId : undefined;
+
+    // 길이 초과로 자동 리셋되는 경우 사용자에게 알린다.
+    if (overLimit) {
+      const k = Math.round(prev.contextTokens / 1000);
+      const limitK = Math.round(config.contextTokenLimit / 1000);
+      console.log(`[discord] 컨텍스트 한도 초과(${prev.contextTokens}) → 새 세션`);
+      await message.reply(
+        `[알림] 대화가 한도(${limitK}k)에 도달해 맥락을 새로 시작합니다(이전 ~${k}k 토큰). 중요한 내용은 namory에 저장돼 있어요.`,
+      );
+    }
+
+    const { text, sessionId, contextTokens } = await askClaude(prompt, resumeId);
+    sessions.set(channelId, { sessionId, contextTokens });
+
+    for (const part of chunk(text)) {
       await message.reply(part);
     }
   } catch (err) {
