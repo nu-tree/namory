@@ -67,8 +67,18 @@ async function handleMessage(message: Message): Promise<void> {
       );
     }
 
-    const { text, sessionId, contextTokens } = await askClaude(prompt, resumeId);
+    const { text, sessionId, contextTokens, saved } = await askClaude(
+      prompt,
+      resumeId,
+    );
     sessions.set(channelId, { sessionId, contextTokens });
+
+    // 무언가 저장했으면 사용자 메시지에 💡 리액션으로 표시(본문엔 알림 텍스트 없음).
+    if (saved) {
+      message.react("💡").catch((err) => {
+        console.error("[discord] 리액션 실패:", err);
+      });
+    }
 
     for (const part of chunk(text)) {
       await message.reply(part);

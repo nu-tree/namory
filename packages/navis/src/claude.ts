@@ -22,6 +22,8 @@ export interface AskResult {
   sessionId: string;
   // 직전 턴의 입력 컨텍스트 토큰 수. 이게 임계를 넘으면 다음 대화는 새 세션으로 리셋.
   contextTokens: number;
+  // 이번 턴에 namory에 새 기억을 저장했는지. 디스코드에서 💡 리액션 표시에 쓴다.
+  saved: boolean;
 }
 
 // 프롬프트 한 개를 Claude에 넣고 답변 + 세션 정보를 받는다.
@@ -36,6 +38,7 @@ export async function askClaude(
   let text = "";
   let sessionId = "";
   let contextTokens = 0;
+  let saved = false;
 
   for await (const message of query({
     prompt,
@@ -62,6 +65,18 @@ export async function askClaude(
       ...(resumeSessionId ? { resume: resumeSessionId } : {}),
     },
   })) {
+    // 턴 중 save 도구가 실제로 호출됐는지 감지 → 💡 리액션 트리거.
+    if (message.type === "assistant") {
+      const content = message.message.content;
+      if (Array.isArray(content)) {
+        for (const block of content) {
+          if (block.type === "tool_use" && block.name === "mcp__namory__save") {
+            saved = true;
+          }
+        }
+      }
+    }
+
     if (message.type === "result") {
       sessionId = message.session_id;
       // 현재 컨텍스트 크기 = 프롬프트 측 토큰 합 (캐시 포함).
@@ -78,5 +93,5 @@ export async function askClaude(
     }
   }
 
-  return { text: text.trim() || "(빈 응답)", sessionId, contextTokens };
+  return { text: text.trim() || "(빈 응답)", sessionId, contextTokens, saved };
 }
