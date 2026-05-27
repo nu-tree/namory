@@ -26,10 +26,6 @@ function chunk(text: string): string[] {
 }
 
 async function handleMessage(message: Message): Promise<void> {
-  // [임시 디버그] 들어오는 모든 메시지 기록 — 진단 끝나면 제거.
-  console.log(
-    `[debug] from=${message.author.tag}(${message.author.id}) bot=${message.author.bot} dm=${message.channel.isDMBased()} contentLen=${message.content.length}`,
-  );
   // 봇 자신·다른 봇 무시.
   if (message.author.bot) return;
   // 허용된 유저만. (인젝션·무단 사용 차단의 핵심 게이트)
