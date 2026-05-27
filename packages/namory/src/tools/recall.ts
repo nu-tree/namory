@@ -1,9 +1,13 @@
-import { sql, cosineDistance, desc } from "drizzle-orm";
+import { sql, cosineDistance, desc, eq } from "drizzle-orm";
 import { db } from "../db/client.js";
-import { memories } from "../db/schema.js";
+import { memories, type Category } from "../db/schema.js";
 import { embed } from "../embedding.js";
 
-export async function recall(args: { query: string; limit?: number }) {
+export async function recall(args: {
+  query: string;
+  limit?: number;
+  category?: Category;
+}) {
   const queryEmbedding = await embed(args.query, "query");
   const similarity = sql<number>`1 - (${cosineDistance(
     memories.embedding,
@@ -19,6 +23,7 @@ export async function recall(args: { query: string; limit?: number }) {
       similarity,
     })
     .from(memories)
+    .where(args.category ? eq(memories.category, args.category) : undefined)
     .orderBy(desc(similarity))
     .limit(args.limit ?? 5);
 }

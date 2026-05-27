@@ -1,8 +1,12 @@
-import { gte, desc } from "drizzle-orm";
+import { gte, desc, and, eq } from "drizzle-orm";
 import { db } from "../db/client.js";
-import { memories } from "../db/schema.js";
+import { memories, type Category } from "../db/schema.js";
 
-export async function recent(args: { days?: number; limit?: number }) {
+export async function recent(args: {
+  days?: number;
+  limit?: number;
+  category?: Category;
+}) {
   const since = new Date(Date.now() - (args.days ?? 7) * 86_400_000);
   return db
     .select({
@@ -12,7 +16,11 @@ export async function recent(args: { days?: number; limit?: number }) {
       createdAt: memories.createdAt,
     })
     .from(memories)
-    .where(gte(memories.createdAt, since))
+    .where(
+      args.category
+        ? and(gte(memories.createdAt, since), eq(memories.category, args.category))
+        : gte(memories.createdAt, since),
+    )
     .orderBy(desc(memories.createdAt))
     .limit(args.limit ?? 50);
 }

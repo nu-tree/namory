@@ -6,6 +6,9 @@ import { recall } from "./tools/recall.js";
 import { recent } from "./tools/recent.js";
 import { pattern } from "./tools/pattern.js";
 import { profileShow, profileUpdate } from "./tools/profile.js";
+import { update } from "./tools/update.js";
+import { remove } from "./tools/remove.js";
+import { todos } from "./tools/todos.js";
 
 const category = z.enum(CATEGORIES);
 
@@ -26,10 +29,10 @@ export function buildMcpServer(): McpServer {
     {
       title: "기억 저장 (save / store memory)",
       description:
-        "결정·배움·아이디어·감정·사람에 대한 기록(memory/note)을 임베딩과 함께 저장한다 (save / store / remember).",
+        "결정·배움·아이디어·감정·사람·할 일에 대한 기록(memory/note/todo)을 임베딩과 함께 저장한다 (save / store / remember). category가 todo면 '안 끝난 할 일'로 시작한다.",
       inputSchema: {
         content: z.string().min(1).describe("저장할 내용 (한 문장 이상 권장)"),
-        category: category.optional().describe("분류 (선택)"),
+        category: category.optional().describe("분류 (선택). todo = 할 일"),
         source: z
           .string()
           .optional()
@@ -54,6 +57,7 @@ export function buildMcpServer(): McpServer {
           .max(50)
           .optional()
           .describe("최대 개수 (기본 5)"),
+        category: category.optional().describe("분류 필터 (선택)"),
       },
     },
     async (args) => ok(await recall(args)),
@@ -80,6 +84,7 @@ export function buildMcpServer(): McpServer {
           .max(200)
           .optional()
           .describe("최대 개수 (기본 50)"),
+        category: category.optional().describe("분류 필터 (선택)"),
       },
     },
     async (args) => ok(await recent(args)),
@@ -132,6 +137,61 @@ export function buildMcpServer(): McpServer {
       },
     },
     async (args) => ok(await profileUpdate(args)),
+  );
+
+  server.registerTool(
+    "update",
+    {
+      title: "기억 정정/완료 (update / edit / complete)",
+      description:
+        "기존 기억을 id로 수정한다 (update / edit / fix). content를 바꾸면 임베딩을 재계산하고, done으로 할 일을 완료/미완료 처리한다 (complete / done / reopen).",
+      inputSchema: {
+        id: z.string().min(1).describe("수정할 기억의 id"),
+        content: z.string().min(1).optional().describe("새 본문 (바꾸면 재임베딩)"),
+        category: category.optional().describe("새 분류"),
+        done: z
+          .boolean()
+          .optional()
+          .describe("할 일 완료 여부 (true=완료, false=다시 열기)"),
+      },
+    },
+    async (args) => ok(await update(args)),
+  );
+
+  server.registerTool(
+    "delete",
+    {
+      title: "기억 삭제 (delete / remove)",
+      description:
+        "틀렸거나 필요 없어진 기억을 id로 영구 삭제한다 (delete / remove / forget).",
+      inputSchema: {
+        id: z.string().min(1).describe("삭제할 기억의 id"),
+      },
+    },
+    async (args) => ok(await remove(args)),
+  );
+
+  server.registerTool(
+    "todos",
+    {
+      title: "할 일 목록 (todos / tasks)",
+      description:
+        "할 일(todo)을 시간 역순으로 가져온다 (todos / tasks / to-do). 기본은 안 끝난 것만 보여준다.",
+      inputSchema: {
+        includeDone: z
+          .boolean()
+          .optional()
+          .describe("완료한 할 일도 포함할지 (기본 false = 미완료만)"),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(200)
+          .optional()
+          .describe("최대 개수 (기본 50)"),
+      },
+    },
+    async (args) => ok(await todos(args)),
   );
 
   return server;
