@@ -102,7 +102,7 @@ export function buildSelfModifyTools(channelId: string): McpSdkServerConfigWithI
           }
 
           return ok(
-            `🔧 코드 수정 서브에이전트에게 작업 의뢰 전송 완료 (dispatch_id=${dispatchId}). ` +
+            `코드 수정 서브에이전트에게 작업 의뢰 전송 완료 (dispatch_id=${dispatchId}). ` +
               `Actions 가 격리 환경에서 코드를 수정하고 PR 을 만들면 별도 메시지로 보고됨. ` +
               `그동안 다른 얘기 계속해도 돼.`,
           );

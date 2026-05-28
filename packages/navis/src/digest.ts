@@ -46,7 +46,7 @@ export async function runDigest(): Promise<void> {
       await sendToChannel(
         discord,
         config.digestChannelId,
-        `🧠 **주간 기억 다이제스트**\n\n${text}`,
+        `**주간 기억 다이제스트**\n\n${text}`,
         "digest",
       );
     } else {

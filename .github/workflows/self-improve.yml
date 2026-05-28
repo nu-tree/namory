@@ -130,7 +130,7 @@ jobs:
           gh pr create \
             --base main \
             --head "${{ steps.branch.outputs.branch }}" \
-            --title "🤖 navis self-improve: $(echo "$INSTRUCTION" | head -c 60)" \
+            --title "navis self-improve: $(echo "$INSTRUCTION" | head -c 60)" \
             --body "$(cat <<EOF
           ## 작업 지시
           \`\`\`

@@ -41,7 +41,7 @@ export async function reviewPullRequest(input: ReviewInput): Promise<void> {
     const diff = await fetchPrDiff(input.prNumber);
     const verdict = await runReview(input.instruction, input.prTitle, diff);
     const msg = [
-      `🤖 **검토 서브에이전트** — PR #${input.prNumber}: ${input.prTitle}`,
+      `**검토 서브에이전트** — PR #${input.prNumber}: ${input.prTitle}`,
       "",
       verdict,
       "",
@@ -54,7 +54,7 @@ export async function reviewPullRequest(input: ReviewInput): Promise<void> {
     await sendToChannel(
       input.client,
       input.channelId,
-      `🤖 **검토 실패** — PR #${input.prNumber}: ${input.prTitle}\n검토 에이전트가 평가에 실패했어. PR 은 GitHub 에서 직접 봐줘.\n${input.prUrl}`,
+      `**검토 실패** — PR #${input.prNumber}: ${input.prTitle}\n검토 에이전트가 평가에 실패했어. PR 은 GitHub 에서 직접 봐줘.\n${input.prUrl}`,
       "review",
     ).catch(() => {});
   }

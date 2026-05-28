@@ -154,13 +154,13 @@ navis 가 자기 코드를 스스로 수정할 수 있는 4계층 흐름:
 
 ```
 너: navis야, packages/navis/src/claude/ask.ts 의 maxTurns 16 을 20 으로 올려줘
-navis: 🔧 코드 수정 서브에이전트에게 작업 의뢰 전송 완료 (dispatch_id=...).
+navis: 코드 수정 서브에이전트에게 작업 의뢰 전송 완료 (dispatch_id=...).
        Actions 가 격리 환경에서 코드를 수정하고 PR 을 만들면 별도 메시지로
        보고됨. 그동안 다른 얘기 계속해도 돼.
 
 [몇 분 뒤, 자동으로 같은 채널에]
 
-navis: 🤖 검토 서브에이전트 — PR #42: navis self-improve: maxTurns 20
+navis: 검토 서브에이전트 — PR #42: navis self-improve: maxTurns 20
 
        [요약] ask.ts:114 maxTurns 16 → 20 한 줄 변경.
        [의도 일치] OK — 지시 그대로.
