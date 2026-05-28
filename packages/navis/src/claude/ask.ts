@@ -111,7 +111,7 @@ export async function askClaude(
       // 로컬 설정(CLAUDE.md, settings.json) 무시.
       settingSources: [],
       // 도구 호출 루프 여유.
-      maxTurns: 8,
+      maxTurns: 16,
       // 이전 대화 이어받기 (있을 때만).
       ...(resumeSessionId ? { resume: resumeSessionId } : {}),
     },

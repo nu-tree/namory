@@ -93,7 +93,7 @@ export async function curateTurn(input: CurateInput): Promise<void> {
         allowedTools: ["mcp__namory__save", "mcp__namory__recall"],
         settingSources: [],
         // recall 1~몇 회 + save 여러 회를 한 번에 처리할 여유.
-        maxTurns: 8,
+        maxTurns: 16,
       },
     })) {
       // 메시지 스트림은 소비만 — 큐레이터는 사용자에게 텍스트를 보내지 않는다.
