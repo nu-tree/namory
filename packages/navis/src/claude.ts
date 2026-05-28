@@ -132,15 +132,16 @@ export async function askClaude(
         ...(cronServer ? { cron: cronServer } : {}),
         ...extraServers,
       },
-      // 자동 승인 도구: namory + (대화 중이면) 크론 도구 + WebSearch + 부가 연동(노션/구글).
-      // allowedTools를 지정한 순간 이건 허용목록으로 동작하므로, 내장 WebSearch도
-      // 명시적으로 넣어줘야 헤드리스 환경에서 권한 막힘 없이 실제로 검색이 돈다.
+      // 자동 승인 도구: namory + (대화 중이면) 크론 도구 + WebSearch/WebFetch + 부가 연동.
+      // allowedTools를 지정한 순간 이건 허용목록으로 동작하므로, 내장 도구도 명시해야
+      // 헤드리스 환경에서 권한 막힘 없이 동작한다. (WebSearch=검색, WebFetch=URL 가져오기)
       // profile_update는 신뢰된 다이제스트 경로(allowProfileUpdate)에서만 추가.
       allowedTools: [
         ...NAMORY_TOOLS,
         ...(allowProfileUpdate ? ["mcp__namory__profile_update"] : []),
         ...(cronServer ? CRON_TOOL_NAMES : []),
         "WebSearch",
+        "WebFetch",
         ...extraToolNames,
       ],
       // 로컬 설정(CLAUDE.md, settings.json) 무시.
