@@ -56,14 +56,15 @@ export async function save(args: {
   category?: Category;
   source?: string;
   project?: string;
-  // true: 유사 기억 후보가 있으면 저장하지 않고 후보만 반환. 모델/클라이언트가
-  // update(병합)이나 무시 결정. 기본 false(저장은 하되 응답에 후보 동봉).
+  // 기본 true — 임계값 이상 유사 기억이 있으면 저장하지 않고 후보만 반환한다
+  // (skipped:true). 의도적으로 중복을 허용해 두 번 강조하고 싶으면 false 명시.
   skipIfDuplicate?: boolean;
 }): Promise<SaveResult> {
   const embedding = await embed(args.content, "document");
   const duplicates = await findDuplicates(embedding, args.project);
+  const skipIfDuplicate = args.skipIfDuplicate ?? true;
 
-  if (args.skipIfDuplicate && duplicates.length > 0) {
+  if (skipIfDuplicate && duplicates.length > 0) {
     return { id: null, createdAt: null, duplicates, skipped: true };
   }
 
