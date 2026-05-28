@@ -24,6 +24,43 @@ const NAMORY_TOOLS = [
   "mcp__namory__update",
 ];
 
+// navis가 붙이는 외부 HTTP MCP 서버 설정 형태. 토큰은 Authorization 헤더로 전달.
+interface McpHttpServer {
+  type: "http";
+  url: string;
+  headers: { Authorization: string };
+  alwaysLoad: true;
+}
+
+// self-host stdio MCP 서버 설정 형태(노션처럼 OAuth 회피용으로 프로세스를 직접 띄움).
+interface McpStdioServer {
+  type: "stdio";
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+}
+
+// {url, token} 한 쌍을 HTTP MCP 서버 설정으로 변환. namory 연결과 동일한 패턴.
+function httpMcp(conn: { url: string; token: string }): McpHttpServer {
+  return {
+    type: "http",
+    url: conn.url,
+    headers: { Authorization: `Bearer ${conn.token}` },
+    alwaysLoad: true,
+  };
+}
+
+// 노션 self-host MCP를 stdio로 띄우는 설정. 내부 통합 토큰을 NOTION_TOKEN으로 주입하면
+// 패키지가 Authorization 헤더 + Notion-Version을 알아서 붙인다. OAuth 없이 정적 토큰만 사용.
+function notionStdio(token: string): McpStdioServer {
+  return {
+    type: "stdio",
+    command: "npx",
+    args: ["-y", "@notionhq/notion-mcp-server"],
+    env: { NOTION_TOKEN: token },
+  };
+}
+
 export interface AskResult {
   text: string;
   // 이 대화의 세션 id. 다음 메시지에서 resume 으로 넘기면 맥락이 이어진다.
@@ -61,6 +98,20 @@ export async function askClaude(
   // 크론 발동 결과는 이 채널로 가도록 channelId를 클로저로 주입한다.
   const cronServer = channelId ? buildCronTools(channelId) : undefined;
 
+  // 선택 외부 연동(노션/구글). env에 토큰이 있을 때만 설정이 채워진다.
+  // 서버 단위로 allowedTools에 `mcp__<name>` 을 넣어 그 서버의 모든 도구를 자동 승인.
+  const extraServers: Record<string, McpHttpServer | McpStdioServer> = {};
+  const extraToolNames: string[] = [];
+  if (config.notionToken) {
+    // 노션은 OAuth 회피용 self-host stdio (내부 통합 토큰만 주입).
+    extraServers.notion = notionStdio(config.notionToken);
+    extraToolNames.push("mcp__notion");
+  }
+  if (config.google) {
+    extraServers.google = httpMcp(config.google);
+    extraToolNames.push("mcp__google");
+  }
+
   for await (const message of query({
     prompt: promptInput,
     options: {
@@ -76,10 +127,17 @@ export async function askClaude(
           alwaysLoad: true,
         },
         ...(cronServer ? { cron: cronServer } : {}),
+        ...extraServers,
       },
-      // 자동 승인 도구: namory + (대화 중이면) 크론 도구. WebSearch 등 내장 도구는
-      // 별도 제한을 안 걸어 그대로 사용 가능.
-      allowedTools: [...NAMORY_TOOLS, ...(cronServer ? CRON_TOOL_NAMES : [])],
+      // 자동 승인 도구: namory + (대화 중이면) 크론 도구 + WebSearch + 부가 연동(노션/구글).
+      // allowedTools를 지정한 순간 이건 허용목록으로 동작하므로, 내장 WebSearch도
+      // 명시적으로 넣어줘야 헤드리스 환경에서 권한 막힘 없이 실제로 검색이 돈다.
+      allowedTools: [
+        ...NAMORY_TOOLS,
+        ...(cronServer ? CRON_TOOL_NAMES : []),
+        "WebSearch",
+        ...extraToolNames,
+      ],
       // 로컬 설정(CLAUDE.md, settings.json) 무시.
       settingSources: [],
       // 도구 호출 루프 여유.

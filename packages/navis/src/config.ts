@@ -9,6 +9,31 @@ function required(name: string): string {
   return v;
 }
 
+// 선택적 환경변수. 없으면 undefined를 돌려주고 죽지 않는다.
+// (구글 캘린더·노션처럼 토큰이 채워졌을 때만 붙이는 부가 연동에 쓴다.)
+function optional(name: string): string | undefined {
+  return process.env[name] || undefined;
+}
+
+// URL+토큰이 한 쌍으로 다 있을 때만 외부 MCP 연동 설정을 돌려준다.
+// 한쪽만 채워져 있으면 설정 실수로 보고 경고 후 무시 → 반쪽짜리 연결로 뜨는 걸 막는다.
+function optionalMcp(
+  label: string,
+  urlVar: string,
+  tokenVar: string,
+): { url: string; token: string } | undefined {
+  const url = optional(urlVar);
+  const token = optional(tokenVar);
+  if (!url && !token) return undefined;
+  if (!url || !token) {
+    console.warn(
+      `[config] ${label} 연동 무시: ${urlVar}/${tokenVar} 둘 다 필요한데 하나만 설정됨.`,
+    );
+    return undefined;
+  }
+  return { url, token };
+}
+
 // 허용된 디스코드 유저 ID만 봇이 응답한다 (프롬프트 인젝션·무단 사용 차단).
 // 쉼표로 여러 개: "123,456"
 function parseAllowedUsers(): string[] {
@@ -48,6 +73,19 @@ export const config = {
   // 새 세션으로 리셋하고 사용자에게 알린다. 잊힌 맥락은 namory가 받쳐줌.
   // 기본 100k = sonnet 200k 창의 절반. 모델 한계·SDK 자동압축 전에 우리가 제어.
   contextTokenLimit: Number(process.env.CONTEXT_TOKEN_LIMIT) || 100000,
+
+  // 부가 외부 MCP 연동 (선택). 토큰이 있을 때만 navis가 붙인다.
+  // 노션: OAuth를 피하려고 호스팅 MCP가 아니라 self-host(@notionhq/notion-mcp-server)를
+  // navis 안에서 stdio로 띄우고, 내부 통합 토큰(ntn_...)만 주입한다. URL 불필요.
+  // notion.so/my-integrations 에서 발급 후 봇이 쓸 페이지/DB를 해당 통합에 공유할 것.
+  notionToken: optional("NOTION_TOKEN"),
+  // 구글 캘린더: 보류. 현재 HTTP+Bearer 스켈레톤은 사실상 미동작 —
+  // 구글 사용자 데이터는 정적 토큰이 없고 access token이 1시간이면 만료되기 때문.
+  // TODO(구글 캘린더): 노션처럼 self-host stdio MCP + OAuth refresh token 구조로 전환.
+  //   1) Google Cloud Console에서 OAuth 데스크톱 클라이언트 발급(client_id/secret)
+  //   2) 로컬에서 1회 동의 → refresh_token 획득 → env 주입
+  //   3) GOOGLE_MCP_URL HTTP 경로 제거하고 캘린더 MCP 서버를 stdio로 spawn.
+  google: optionalMcp("google", "GOOGLE_MCP_URL", "GOOGLE_TOKEN"),
 
   // 봇 성격·행동 지침. 코드에 두지 않고 SYSTEM_PROMPT 환경변수로만 주입한다
   // (레포 공개 대비 — 프롬프트는 .env / Railway 변수에만 존재). 없으면 즉시 종료.
