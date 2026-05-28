@@ -1,6 +1,7 @@
 import { query, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import { config } from "../config.js";
 import { buildCronTools, CRON_TOOL_NAMES } from "../cron/mcp.js";
+import { buildRepoTools, REPO_TOOL_NAMES } from "../repo/mcp.js";
 import {
   BUILTIN_TOOLS,
   NAMORY_PROFILE_UPDATE_TOOL,
@@ -53,6 +54,11 @@ export async function askClaude(
   // 크론 발동 결과는 이 채널로 가도록 channelId를 클로저로 주입한다.
   const cronServer = channelId ? buildCronTools(channelId) : undefined;
 
+  // 자기 소스 조회 도구(read-only). 디스코드 봇은 컨테이너에 src/가 없어서 이 도구로
+  // GitHub raw를 읽어야 자기 코드를 볼 수 있다. CLI 모드에서도 풀어둠(레포 어디에 있든
+  // 같은 명령으로 동작) — 다만 CLI는 로컬 Read가 더 빠르니 거의 안 쓸 것.
+  const repoServer = buildRepoTools();
+
   // 선택 외부 연동(노션/구글). env에 토큰이 있을 때만 설정이 채워진다.
   // 서버 단위로 allowedTools에 `mcp__<name>` 을 넣어 그 서버의 모든 도구를 자동 승인.
   const extraServers: Record<string, McpHttpServer | McpStdioServer> = {};
@@ -88,15 +94,17 @@ export async function askClaude(
           alwaysLoad: true,
         },
         ...(cronServer ? { cron: cronServer } : {}),
+        repo: repoServer,
         ...extraServers,
       },
-      // 자동 승인 도구: namory + 내장(파일/셸/웹/탐색) + (대화 중이면) 크론 + 부가 연동.
+      // 자동 승인 도구: namory + 내장(파일/셸/웹/탐색) + repo 조회 + (대화 중이면) 크론 + 부가 연동.
       // 목록은 ./allowed-tools.ts 한 곳에서 관리. profile_update는 신뢰된 다이제스트
       // 경로(allowProfileUpdate)에서만 추가.
       allowedTools: [
         ...NAMORY_TOOLS,
         ...(allowProfileUpdate ? [NAMORY_PROFILE_UPDATE_TOOL] : []),
         ...(cronServer ? CRON_TOOL_NAMES : []),
+        ...REPO_TOOL_NAMES,
         ...BUILTIN_TOOLS,
         ...extraToolNames,
       ],

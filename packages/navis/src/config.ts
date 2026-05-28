@@ -98,6 +98,14 @@ export const config = {
   // 기본 100k = sonnet 200k 창의 절반. 모델 한계·SDK 자동압축 전에 우리가 제어.
   contextTokenLimit: 100_000,
 
+  // 자기 소스 조회용 GitHub 레포. navis가 디스코드 대화 중 read_repo_file/list_repo_files
+  // 도구로 자기 코드를 보여줄 수 있게 한다. 컨테이너엔 src/가 없어서(dist만 복사)
+  // GitHub Contents API 경유가 유일한 경로.
+  //   GITHUB_REPO: "owner/repo" 형태 (예: nu-tree/namory). 미설정이면 도구가 친절한 에러.
+  //   GITHUB_TOKEN: 선택. private 레포면 필수, public이어도 있으면 rate limit 60→5000/h.
+  githubRepo: optional("GITHUB_REPO"),
+  githubToken: optional("GITHUB_TOKEN"),
+
   // 부가 외부 MCP 연동 (선택). 토큰이 있을 때만 navis가 붙인다.
   // 노션: OAuth를 피하려고 호스팅 MCP가 아니라 self-host(@notionhq/notion-mcp-server)를
   // navis 안에서 stdio로 띄우고, 내부 통합 토큰(ntn_...)만 주입한다. URL 불필요.
