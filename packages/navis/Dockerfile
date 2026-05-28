@@ -19,16 +19,16 @@ RUN corepack enable && corepack prepare pnpm@11.0.8 --activate
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY packages/navis/package.json ./packages/navis/package.json
 
-RUN pnpm install --frozen-lockfile --filter navis
+RUN pnpm install --frozen-lockfile --filter ./packages/navis
 
 # 소스 복사 후 빌드
 COPY packages/navis ./packages/navis
-RUN pnpm --filter navis build
+RUN pnpm --filter ./packages/navis build
 
 # 런타임 의존성만 담은 standalone 산출물 (/app)
 # pnpm v10+는 deploy 시 inject-workspace-packages를 요구 → 워크스페이스 의존성이
 # 없으므로 --legacy(구 알고리즘)로 추출한다. shared 패키지 의존이 생기면 재검토.
-RUN pnpm --filter navis deploy --prod --legacy /app
+RUN pnpm --filter ./packages/navis deploy --prod --legacy /app
 
 # ============================================
 # Stage 2: runner — 최종 실행 이미지
