@@ -1,7 +1,7 @@
 {
-  "name": "namory-monorepo",
+  "name": "navis",
   "version": "0.0.0",
-  "description": "제2의 뇌 시스템 모노레포 — namory(저장/회상) + 향후 agent 등",
+  "description": "navis — 제2의 뇌 + 에이전트 모노레포 (namory: 기억 백엔드, navis: 에이전트/CLI)",
   "private": true,
   "type": "module",
   "scripts": {

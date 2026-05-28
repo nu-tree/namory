@@ -9,11 +9,11 @@
 # 새 버전 릴리스 시: 메인 레포에서 git tag vX.Y.Z push → 아래 url/sha256만 갱신.
 class Navis < Formula
   desc "Personal Claude-powered REPL (Discord/CLI bridge with namory memory)"
-  homepage "https://github.com/nu-tree/namory"
-  url "https://github.com/nu-tree/namory/archive/refs/tags/v0.1.0.tar.gz"
+  homepage "https://github.com/nu-tree/navis"
+  url "https://github.com/nu-tree/navis/archive/refs/tags/v0.1.0.tar.gz"
   sha256 "PLACEHOLDER_RUN_shasum_-a_256_AFTER_TAGGING"
   license "MIT"
-  head "https://github.com/nu-tree/namory.git", branch: "main"
+  head "https://github.com/nu-tree/navis.git", branch: "main"
 
   depends_on "node"
 
