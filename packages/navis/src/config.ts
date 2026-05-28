@@ -105,6 +105,9 @@ export const config = {
   //   GITHUB_TOKEN: 선택. private 레포면 필수, public이어도 있으면 rate limit 60→5000/h.
   githubRepo: optional("GITHUB_REPO"),
   githubToken: optional("GITHUB_TOKEN"),
+  // self-improve PR 생성 webhook 검증용 HMAC secret. GitHub repo Settings → Webhooks
+  // 등록 시 같은 값을 secret 으로 박는다. 미설정이면 webhook 라우트가 모든 요청을 거부.
+  githubWebhookSecret: optional("GITHUB_WEBHOOK_SECRET"),
 
   // 부가 외부 MCP 연동 (선택). 토큰이 있을 때만 navis가 붙인다.
   // 노션: OAuth를 피하려고 호스팅 MCP가 아니라 self-host(@notionhq/notion-mcp-server)를

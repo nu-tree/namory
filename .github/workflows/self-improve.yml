@@ -1,0 +1,147 @@
+# navis 자기 개선 워크플로 — "코드 수정 서브에이전트"
+#
+# 동작:
+#   1. navis 봇이 디스코드에서 "이거 고쳐줘" 명령을 받으면 GitHub
+#      repository_dispatch (type: self-improve)를 던진다.
+#   2. 이 워크플로가 새 브랜치 체크아웃 → Claude Code CLI(Opus 4.7)로
+#      자연어 지시를 실행해 코드를 수정 → 커밋 → PR 생성.
+#   3. PR 생성 이벤트는 webhook → navis 봇 → 검토 서브에이전트로 전달.
+#
+# 인증:
+#   - GITHUB_TOKEN: workflow-scoped (자동 제공, 별도 secret 불필요).
+#     contents:write + pull-requests:write 권한을 permissions 블록으로 부여.
+
+name: navis self-improve
+
+on:
+  repository_dispatch:
+    types: [self-improve]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+# 동시 self-improve 트리거 중복 방지 (instruction 별로 격리는 안 함 — 단순화).
+concurrency:
+  group: self-improve-${{ github.event.client_payload.dispatch_id }}
+  cancel-in-progress: false
+
+jobs:
+  modify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      INSTRUCTION: ${{ github.event.client_payload.instruction }}
+      CHANNEL_ID: ${{ github.event.client_payload.channel_id }}
+      DISPATCH_ID: ${{ github.event.client_payload.dispatch_id }}
+    steps:
+      - name: 입력 검증
+        run: |
+          if [ -z "$INSTRUCTION" ]; then
+            echo "::error::client_payload.instruction 비어있음 — dispatch 페이로드 확인"
+            exit 1
+          fi
+          echo "instruction(len=${#INSTRUCTION}): ${INSTRUCTION:0:200}..."
+          echo "channel=$CHANNEL_ID dispatch=$DISPATCH_ID"
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: git identity
+        run: |
+          git config user.name "navis-bot"
+          git config user.email "navis-bot@users.noreply.github.com"
+
+      - name: 새 브랜치 생성
+        id: branch
+        run: |
+          # 디스패치 id가 있으면 그걸로, 없으면 타임스탬프로.
+          slug="${DISPATCH_ID:-$(date +%Y%m%d-%H%M%S)}"
+          branch="navis/self-improve/$slug"
+          git checkout -b "$branch"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+
+      - name: Node 22 + pnpm
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: corepack enable && corepack prepare pnpm@11.0.8 --activate
+
+      - name: Claude Code CLI 설치
+        # 공식 native installer. 단일 바이너리로 ~/.local/bin/claude 설치.
+        run: |
+          curl -fsSL https://claude.ai/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: 의존성 설치 (수정 후 빌드 검증용)
+        run: pnpm install --frozen-lockfile
+
+      - name: Claude 로 코드 수정 실행
+        env:
+          # CLI 가 OAuth 토큰을 env 에서 자동 사용.
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          # 변경 가능 경로를 시스템 프롬프트로 제한.
+          # 도구 화이트리스트는 코드 수정에 필요한 최소 집합만.
+          PROMPT=$(cat <<EOF
+          [작업 지시 — 사용자가 디스코드에서 navis 에게 요청한 것]
+
+          ${INSTRUCTION}
+
+          [제약]
+          - 변경 허용 경로: packages/navis/src/**, packages/namory/src/**
+          - 절대 금지: .github/**, Dockerfile, *.lock, .env*, 루트 package.json
+          - 수정 후 반드시 'pnpm -r build' 가 성공해야 함 — 깨지면 본인이 고쳐서 통과시킬 것
+          - 변경 사유를 짧게 commit message 본문에 남길 것
+          EOF
+          )
+
+          claude -p "$PROMPT" \
+            --model claude-opus-4-7 \
+            --max-turns 30 \
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash"
+
+      - name: 빌드 통과 검증
+        run: pnpm -r build
+
+      - name: 변경 사항 커밋
+        id: commit
+        run: |
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "::warning::변경 사항 없음 — Claude 가 아무것도 수정하지 않음"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git add -A
+          # 첫 줄 80자 + 본문에 instruction.
+          short=$(echo "$INSTRUCTION" | head -c 70)
+          git commit -m "navis self-improve: $short" -m "$INSTRUCTION"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: PR 생성
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git push origin "${{ steps.branch.outputs.branch }}"
+          # PR body 에 메타데이터 박음 — webhook 받을 때 channelId 복구용.
+          gh pr create \
+            --base main \
+            --head "${{ steps.branch.outputs.branch }}" \
+            --title "🤖 navis self-improve: $(echo "$INSTRUCTION" | head -c 60)" \
+            --body "$(cat <<EOF
+          ## 작업 지시
+          \`\`\`
+          ${INSTRUCTION}
+          \`\`\`
+
+          ## 메타
+          - dispatch_id: \`${DISPATCH_ID}\`
+          - channel_id: \`${CHANNEL_ID}\`
+          - actor: navis self-improve (Opus 4.7)
+
+          빌드 통과 확인 완료. 검토 후 머지하세요.
+          EOF
+          )"

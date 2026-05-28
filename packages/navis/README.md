@@ -108,6 +108,78 @@ pnpm cli                          # 터미널 REPL 모드
 - 인바운드 HTTP 불필요(Gateway가 outbound) — 단, `/health` 엔드포인트만 uptime 체크용으로 열어둠
 - env: `DISCORD_TOKEN`, `ALLOWED_USER_IDS`, `CLAUDE_CODE_OAUTH_TOKEN`, `NAMORY_MCP_URL`, `NAMORY_TOKEN`, `SYSTEM_PROMPT` 필수
 
+## 자기 개선 (멀티 에이전트)
+
+navis 가 자기 코드를 스스로 수정할 수 있는 4계층 흐름:
+
+```
+[너] → [① 메인 navis (오케스트레이터)]
+              ↓ repository_dispatch
+       [② Actions 안의 Claude Code (Opus 4.7, 코드 수정 서브에이전트)]
+              ↓ webhook (PR 생성)
+       [③ navis 안의 검토 서브에이전트 (Sonnet 4.6, critic)]
+              ↓
+       [① 메인 navis 가 채널로 보고] → [너]
+```
+
+비동기: ① 은 트리거만 던지고 즉시 응답, ② 는 격리 Actions 에서 작업, ③ 은 fire-and-forget. 너 디스코드 채팅은 막히지 않음.
+
+### 셋업 (1회)
+
+1. **GitHub PAT 권한 확장**
+   - 기존 `GITHUB_TOKEN` PAT 에 **`Actions: Write`** 권한 추가 (`Contents: Read` 는 이미 있음).
+   - navis 봇이 `repository_dispatch` 를 던질 권한이 필요.
+
+2. **GitHub Actions secret 등록** (`repo Settings → Secrets and variables → Actions`)
+   - `CLAUDE_CODE_OAUTH_TOKEN` — 너 Max 구독 OAuth 토큰. `claude setup-token` 으로 발급한 그 값을 그대로.
+
+3. **Repo Settings → Actions → General → Workflow permissions**
+   - `Read and write permissions` 선택.
+   - `Allow GitHub Actions to create and approve pull requests` 체크.
+
+4. **GitHub webhook 등록** (`repo Settings → Webhooks → Add webhook`)
+   - Payload URL: `https://<navis-railway-url>/webhook/github`
+   - Content type: `application/json`
+   - Secret: 임의 문자열 (예: `openssl rand -hex 32`) — 같은 값을 navis env `GITHUB_WEBHOOK_SECRET` 에 박는다.
+   - Events: `Let me select individual events` → `Pull requests` 만 체크.
+
+5. **navis env 갱신** — 로컬 `.env` 와 Railway Variables 둘 다:
+   ```
+   GITHUB_WEBHOOK_SECRET=<위에서 정한 secret>
+   ```
+
+### 사용
+
+디스코드에서 그냥 자연어로:
+
+```
+너: navis야, packages/navis/src/claude/ask.ts 의 maxTurns 16 을 20 으로 올려줘
+navis: 🔧 코드 수정 서브에이전트에게 작업 의뢰 전송 완료 (dispatch_id=...).
+       Actions 가 격리 환경에서 코드를 수정하고 PR 을 만들면 별도 메시지로
+       보고됨. 그동안 다른 얘기 계속해도 돼.
+
+[몇 분 뒤, 자동으로 같은 채널에]
+
+navis: 🤖 검토 서브에이전트 — PR #42: navis self-improve: maxTurns 20
+
+       [요약] ask.ts:114 maxTurns 16 → 20 한 줄 변경.
+       [의도 일치] OK — 지시 그대로.
+       [안전성] 안전. 한도 늘림은 회귀 위험 없음.
+       [권고] 머지 OK.
+
+       https://github.com/nu-tree/navis/pull/42
+```
+
+너는 PR 보고 머지만. Railway 자동 배포로 다음 응답부터 새 navis.
+
+### 안전 게이트
+
+- **변경 가능 경로 화이트리스트**: `packages/{navis,namory}/src/**` 만. `.github/**`, `Dockerfile`, `*.lock`, `.env*` 절대 금지 (워크플로 시스템 프롬프트 강제).
+- **빌드 통과 강제**: `pnpm -r build` 실패 시 PR 생성 자체 차단.
+- **자동 머지 없음**: 항상 PR. 너 검토 강제.
+- **webhook HMAC 검증**: secret 모르는 외부 요청은 401 거부.
+- **dispatch_id 매핑**: in-memory 30분 TTL. 어느 채널에서 시작한 작업인지 추적.
+
 ## 글로벌 설치 (Homebrew)
 
 ```bash
