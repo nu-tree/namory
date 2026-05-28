@@ -95,8 +95,8 @@ export const config = {
 
   // 대화 맥락 유지 한도(토큰). 한 대화의 컨텍스트가 이걸 넘으면 다음 메시지부터
   // 새 세션으로 리셋하고 사용자에게 알린다. 잊힌 맥락은 namory가 받쳐줌.
-  // 기본 100k = sonnet 200k 창의 절반. 모델 한계·SDK 자동압축 전에 우리가 제어.
-  contextTokenLimit: 100_000,
+  // 기본 150k = sonnet 200k 창의 75%. 모델 한계·SDK 자동압축 전에 우리가 제어.
+  contextTokenLimit: 150_000,
 
   // 자기 소스 조회용 GitHub 레포. navis가 디스코드 대화 중 read_repo_file/list_repo_files
   // 도구로 자기 코드를 보여줄 수 있게 한다. 컨테이너엔 src/가 없어서(dist만 복사)
