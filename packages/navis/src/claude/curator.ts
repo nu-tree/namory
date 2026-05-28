@@ -79,7 +79,7 @@ export async function curateTurn(input: CurateInput): Promise<void> {
       prompt: turn,
       options: {
         // 저렴한 빠른 모델로 충분 — 분류·요약·짧은 호출 위주.
-        model: "claude-haiku-4-5-20251001",
+        model: config.curatorModel,
         systemPrompt: CURATOR_SYSTEM_PROMPT,
         mcpServers: {
           namory: {
