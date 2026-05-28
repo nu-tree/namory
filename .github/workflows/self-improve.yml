@@ -110,16 +110,17 @@ jobs:
           git status --short
           echo "::endgroup::"
 
-          # --permission-mode acceptEdits: headless 환경에서 --allowed-tools 만으로는
-          #   파일 편집이 자동 승인 안 되는 경우가 있어 명시. 없으면 Claude 가 권한 거절로
-          #   아무 것도 수정하지 못해 changed=false 로 빠지고 PR 이 안 만들어진다(5/28 버그).
+          # --permission-mode bypassPermissions: headless 환경에서 모든 도구 호출을 자동
+          #   승인. acceptEdits 는 편집만 자동이라 Bash/Glob 등에서 권한 막혀 changed=false
+          #   로 빠질 수 있었음(5/28 버그). 변경 가능 경로는 위 [제약] 블록과 빌드 검증으로
+          #   격리되니, 워크플로 안에서 권한은 풀어도 안전.
           # Bash(*) : CLI 가 인식하는 패턴 형식(parens 필수).
           # --verbose : 실패 원인 추적을 위해 도구 호출 로그를 stdout 에 남김.
           set -x
           claude -p "$PROMPT" \
             --model claude-opus-4-7 \
             --max-turns 30 \
-            --permission-mode acceptEdits \
+            --permission-mode bypassPermissions \
             --allowed-tools "Read Write Edit Glob Grep Bash(*)" \
             --verbose
           set +x
