@@ -12,6 +12,8 @@ import { config } from "../config.js";
 // - 중복 방지: 저장 전 recall로 유사 기억이 이미 있는지 점검(임계값 이상이면 스킵)
 // - 출처 표기: source="navis-curator" 로 수동 저장과 구분 가능
 
+const CURATOR_MODEL = "claude-haiku-4-5-20251001";
+
 // 큐레이터 시스템 프롬프트는 personality가 아닌 instruction이므로 코드 상수로 둔다
 // (SYSTEM_PROMPT env와 분리 — 봇 성격은 메인 턴에만 적용).
 const CURATOR_SYSTEM_PROMPT = `너는 namory(제2의 뇌)의 큐레이터다. 방금 끝난 한 턴의 대화(사용자 메시지 + 어시스턴트 응답)를 읽고, 장기 기억으로 남길 가치가 있는 항목을 namory에 저장한다.
@@ -79,7 +81,7 @@ export async function curateTurn(input: CurateInput): Promise<void> {
       prompt: turn,
       options: {
         // 저렴한 빠른 모델로 충분 — 분류·요약·짧은 호출 위주.
-        model: "claude-haiku-4-5-20251001",
+        model: CURATOR_MODEL,
         systemPrompt: CURATOR_SYSTEM_PROMPT,
         mcpServers: {
           namory: {
@@ -92,8 +94,8 @@ export async function curateTurn(input: CurateInput): Promise<void> {
         // 권한 최소화: save + recall만. profile_update/update/delete는 절대 X.
         allowedTools: ["mcp__namory__save", "mcp__namory__recall"],
         settingSources: [],
-        // recall 1~몇 회 + save 여러 회를 한 번에 처리할 여유.
-        maxTurns: 16,
+        // recall 1~3회 + save 1~5회면 충분. 16은 과잉이라 오작동 시 낭비가 큼.
+        maxTurns: 8,
       },
     })) {
       // 메시지 스트림은 소비만 — 큐레이터는 사용자에게 텍스트를 보내지 않는다.
