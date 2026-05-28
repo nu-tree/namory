@@ -12,6 +12,13 @@ const SAVE_NUDGE_KEYWORDS = [
   "약속",
   "목표",
   "선호",
+  "배웠",
+  "배운",
+  "학습",
+  "발견",
+  "느낌",
+  "기분",
+  "감정",
 ];
 
 export function applySaveNudge(prompt: string): string {
