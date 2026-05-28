@@ -92,10 +92,15 @@ export async function askClaude(
   let contextTokens = 0;
   let saved = false;
 
+  // 키워드 너지(B): 사용자 메시지에 결정/약속/할 일/배움 신호가 보이면 메인 턴에도
+  // save 호출을 상기시키는 가벼운 힌트를 앞에 붙인다. 사후 큐레이터(A)가 그물이지만
+  // 메인 턴에서 잡으면 응답 흐름 안에서 자연스럽게 저장돼 UX가 매끄럽다.
+  const nudgedPrompt = applySaveNudge(prompt);
+
   // 이미지가 있으면 content block 배열로 구성해 user 메시지 하나를 yield 한다.
   // 없으면 기존처럼 문자열 prompt 그대로(가장 단순한 경로).
   const promptInput =
-    images.length > 0 ? buildImageMessage(prompt, images) : prompt;
+    images.length > 0 ? buildImageMessage(nudgedPrompt, images) : nudgedPrompt;
 
   // 채널 id가 있으면(=실제 대화) 그 채널에 묶인 in-process 크론 도구를 붙인다.
   // 크론 발동 결과는 이 채널로 가도록 channelId를 클로저로 주입한다.
@@ -181,6 +186,29 @@ export async function askClaude(
   }
 
   return { text: text.trim() || "(빈 응답)", sessionId, contextTokens, saved };
+}
+
+// 저장 너지 키워드 — 결정/약속/할 일/배움/선호 신호. 보수적으로 골라 false positive 최소화.
+// 매칭되면 사용자 메시지 앞에 가벼운 메타 힌트를 붙여 메인 턴이 save 호출을 검토하도록 유도.
+const SAVE_NUDGE_KEYWORDS = [
+  "결정",
+  "정했",
+  "기억해",
+  "잊지",
+  "할 일",
+  "할일",
+  "todo",
+  "TODO",
+  "약속",
+  "목표",
+  "선호",
+];
+
+function applySaveNudge(prompt: string): string {
+  if (!prompt) return prompt;
+  const hit = SAVE_NUDGE_KEYWORDS.some((k) => prompt.includes(k));
+  if (!hit) return prompt;
+  return `[자동 메모] 이번 사용자 메시지에 결정/약속/할 일/배움 신호가 보입니다. 답변하면서 mcp__namory__save 호출을 함께 고려하세요(맞으면 카테고리·project 태깅, 아니면 무시).\n\n${prompt}`;
 }
 
 // 텍스트(있으면) + 이미지들을 하나의 user 메시지로 묶어 yield 하는 async generator.

@@ -8,6 +8,7 @@ import {
 import sharp from "sharp";
 import { config } from "./config.js";
 import { askClaude, type InputImage } from "./claude.js";
+import { curateTurn } from "./curator.js";
 
 const DISCORD_MAX = 2000;
 
@@ -161,6 +162,10 @@ async function handleMessage(message: Message): Promise<void> {
     for (const part of chunk(text)) {
       await message.reply(part);
     }
+
+    // 사후 큐레이터(A) — 답변을 보낸 뒤 백그라운드로 한 번 더 평가해 저장 누락을 메운다.
+    // fire-and-forget: 사용자 UX는 끝났고 큐레이터 실패는 무시(자체 try/catch).
+    void curateTurn({ userText: prompt, assistantText: text });
   } catch (err) {
     console.error("[discord] 처리 실패:", err);
     await message.reply("⚠️ 처리 중 오류가 났어요. 로그를 확인해주세요.");
