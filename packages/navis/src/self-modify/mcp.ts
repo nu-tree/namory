@@ -7,10 +7,11 @@ import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import { config } from "../config.js";
 
-// "코드 수정 서브에이전트" 트리거. 디스코드 메인 navis 가 자연어 지시를 받으면
+// "코드 수정 서브에이전트" 트리거. navis 가 자연어 지시를 받으면
 // 이 도구를 호출 → GitHub repository_dispatch 로 self-improve 워크플로 발동.
 // 실제 코드 분석/수정/PR 생성은 GitHub Actions 안의 Claude Code(Opus 4.7) 가 수행.
-// 메인 봇은 fire-and-forget — 즉시 응답해 디스코드 채팅을 막지 않는다.
+// 호출 측은 fire-and-forget — 즉시 응답해 흐름을 막지 않는다.
+// channelId 가 있으면 디스코드 채널로 비동기 보고, 없으면(CLI) GitHub PR 로만 결과 확인.
 
 const ok = (text: string) => ({ content: [{ type: "text" as const, text }] });
 const err = (text: string) => ({
@@ -42,9 +43,9 @@ function pruneExpiredDispatches(): void {
 
 export const SELF_MODIFY_TOOL_NAMES = ["mcp__self_modify__request_self_modification"];
 
-// 디스코드 채널에서만 의미 있는 도구라 channelId 클로저로 받는다.
-// CLI 모드(channelId 없음)에선 buildSelfModifyTools 자체를 호출하지 않으므로 노출 안 됨.
-export function buildSelfModifyTools(channelId: string): McpSdkServerConfigWithInstance {
+// channelId 가 있으면 디스코드로 보고, 없으면 GitHub PR 로만 결과 확인.
+// 디스코드 모드에선 channelId 를 클로저로 받아 dispatch 매핑/payload 에 실어준다.
+export function buildSelfModifyTools(channelId?: string): McpSdkServerConfigWithInstance {
   return createSdkMcpServer({
     name: "self_modify",
     version: "0.1.0",
@@ -71,7 +72,9 @@ export function buildSelfModifyTools(channelId: string): McpSdkServerConfigWithI
           }
 
           const dispatchId = randomUUID();
-          pendingDispatches.set(dispatchId, { channelId, createdAt: Date.now() });
+          if (channelId) {
+            pendingDispatches.set(dispatchId, { channelId, createdAt: Date.now() });
+          }
 
           const url = `https://api.github.com/repos/${config.githubRepo}/dispatches`;
           const res = await fetch(url, {
@@ -86,14 +89,14 @@ export function buildSelfModifyTools(channelId: string): McpSdkServerConfigWithI
               event_type: "self-improve",
               client_payload: {
                 instruction: args.instruction,
-                channel_id: channelId,
+                channel_id: channelId ?? "",
                 dispatch_id: dispatchId,
               },
             }),
           });
 
           if (!res.ok) {
-            pendingDispatches.delete(dispatchId);
+            if (channelId) pendingDispatches.delete(dispatchId);
             const body = await res.text();
             console.error(
               `[self-modify] dispatch 실패 status=${res.status} body=${body} repo=${config.githubRepo}`,
@@ -104,11 +107,18 @@ export function buildSelfModifyTools(channelId: string): McpSdkServerConfigWithI
             );
           }
 
-          console.log(`[self-modify] dispatch 성공 id=${dispatchId} channel=${channelId}`);
+          console.log(
+            `[self-modify] dispatch 성공 id=${dispatchId} channel=${channelId ?? "(cli)"}`,
+          );
+          if (channelId) {
+            return ok(
+              `코드 수정 서브에이전트에게 작업 의뢰 전송 완료 (dispatch_id=${dispatchId}). ` +
+                `Actions 가 격리 환경에서 코드를 수정하고 PR 을 만들면 별도 메시지로 보고됨. ` +
+                `그동안 다른 얘기 계속해도 돼.`,
+            );
+          }
           return ok(
-            `코드 수정 서브에이전트에게 작업 의뢰 전송 완료 (dispatch_id=${dispatchId}). ` +
-              `Actions 가 격리 환경에서 코드를 수정하고 PR 을 만들면 별도 메시지로 보고됨. ` +
-              `그동안 다른 얘기 계속해도 돼.`,
+            "코드 수정 서브에이전트에게 작업 의뢰 전송 완료. PR이 생성되면 GitHub에서 확인할 수 있어요.",
           );
         },
       ),
