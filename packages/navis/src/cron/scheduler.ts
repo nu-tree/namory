@@ -9,7 +9,7 @@ import { fetchCrons, type CronRow } from "./api.js";
 
 // id → {task, sig}. sig는 schedule|timezone|enabled 로, 바뀐 잡만 다시 건다.
 const jobs = new Map<string, { task: ScheduledTask; sig: string }>();
-let discord: Client;
+let discord: Client | undefined;
 
 const sigOf = (c: CronRow) => `${c.schedule}|${c.timezone}|${c.enabled}`;
 
@@ -43,6 +43,10 @@ export function unscheduleCron(id: string): void {
 
 // 발동 시: 프롬프트를 새 세션으로 실행하고 결과를 등록 채널로 보낸다.
 async function runCron(c: CronRow): Promise<void> {
+  if (!discord) {
+    console.error(`[cron] discord client 미초기화, '${c.title}' 발동 건너뜀`);
+    return;
+  }
   console.log(`[cron] 발동: '${c.title}'`);
   try {
     const { text } = await askClaude(c.prompt);
