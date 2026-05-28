@@ -83,6 +83,7 @@ jobs:
           # CLI 가 OAuth 토큰을 env 에서 자동 사용.
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
+          set -euo pipefail
           # 변경 가능 경로를 시스템 프롬프트로 제한.
           # 도구 화이트리스트는 코드 수정에 필요한 최소 집합만.
           PROMPT=$(cat <<EOF
@@ -98,10 +99,27 @@ jobs:
           EOF
           )
 
+          echo "::group::claude 호출 직전 git status"
+          git status --short
+          echo "::endgroup::"
+
+          # --permission-mode acceptEdits: headless 환경에서 --allowed-tools 만으로는
+          #   파일 편집이 자동 승인 안 되는 경우가 있어 명시. 없으면 Claude 가 권한 거절로
+          #   아무 것도 수정하지 못해 changed=false 로 빠지고 PR 이 안 만들어진다(5/28 버그).
+          # Bash(*) : CLI 가 인식하는 패턴 형식(parens 필수).
+          # --verbose : 실패 원인 추적을 위해 도구 호출 로그를 stdout 에 남김.
+          set -x
           claude -p "$PROMPT" \
             --model claude-opus-4-7 \
             --max-turns 30 \
-            --allowedTools "Read,Write,Edit,Glob,Grep,Bash"
+            --permission-mode acceptEdits \
+            --allowed-tools "Read Write Edit Glob Grep Bash(*)" \
+            --verbose
+          set +x
+
+          echo "::group::claude 호출 직후 git status"
+          git status --short
+          echo "::endgroup::"
 
       - name: 빌드 통과 검증
         run: pnpm -r build
@@ -110,9 +128,12 @@ jobs:
         id: commit
         run: |
           if git diff --quiet && git diff --cached --quiet; then
-            echo "::warning::변경 사항 없음 — Claude 가 아무것도 수정하지 않음"
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            exit 0
+            # Claude 가 아무것도 수정하지 않은 경우 — 디버깅에 유용하도록 명시적 실패로
+            # 처리한다. 이전엔 warning 후 changed=false 로 빠져 디스코드에선 "전송 성공" 만
+            # 보이고 PR 이 없는 상태가 됐다(5/28 버그). 실패 시 Actions 로그를 보면
+            # claude 단계 출력으로 원인을 추적할 수 있다.
+            echo "::error::변경 사항 없음 — Claude 가 아무것도 수정하지 않음. 위 'claude 호출 직전/직후 git status' 와 claude 출력으로 원인 추적할 것."
+            exit 1
           fi
           git add -A
           # 첫 줄 80자 + 본문에 instruction.
