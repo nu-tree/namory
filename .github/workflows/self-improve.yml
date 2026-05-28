@@ -92,10 +92,17 @@ jobs:
           ${INSTRUCTION}
 
           [제약]
-          - 변경 허용 경로: packages/navis/src/**, packages/namory/src/**
-          - 절대 금지: .github/**, Dockerfile, *.lock, .env*, 루트 package.json
+          - 변경 허용 경로: packages/navis/src/**, packages/namory/src/**, packages/navis/README.md, packages/namory/README.md, README.md
+          - 절대 금지: .github/**, Dockerfile, *.lock, .env*, 루트 package.json, 루트 pnpm-workspace.yaml
           - 수정 후 반드시 'pnpm -r build' 가 성공해야 함 — 깨지면 본인이 고쳐서 통과시킬 것
           - 변경 사유를 짧게 commit message 본문에 남길 것
+
+          [실행 모드 — 중요]
+          - 이 환경은 headless(\`claude -p\`)다. 사용자가 답할 수 없다. 어떤 경우에도 "어느 쪽으로 가야 할까요?" 같은 질문을 던지지 말 것.
+          - 요청과 제약이 충돌하면 다음 순서로 스스로 결정:
+            1) 제약 안에서 사용자 의도에 가장 가까운 해석이 가능하면 그걸로 실행 (예: 루트 외 다른 README 경로로 대체).
+            2) 어떤 해석으로도 불가능하면 파일을 절대 수정하지 말고, 거절 사유와 권장 대체안을 표준 출력에 한 단락으로 적고 종료. 워크플로가 "변경 없음" 으로 실패하면서 그 출력으로 사용자가 원인 파악.
+          - 결정 즉시 도구 호출로 실행에 들어갈 것. 사용자 확인을 기다리는 출력을 하지 말 것.
           EOF
           )
 
