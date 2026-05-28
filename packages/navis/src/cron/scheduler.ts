@@ -45,7 +45,7 @@ export function unscheduleCron(id: string): void {
 async function runCron(c: CronRow): Promise<void> {
   console.log(`[cron] 발동: '${c.title}'`);
   try {
-    const { text } = await askClaude(c.prompt);
+    const { text } = await askClaude(c.prompt, undefined, [], c.channelId);
     await sendToChannel(discord, c.channelId, text, "cron");
   } catch (err) {
     console.error(`[cron] '${c.title}' 실행 실패:`, err);
