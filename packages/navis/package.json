@@ -13,6 +13,7 @@
     "@notionhq/notion-mcp-server": "^2.2.1",
     "discord.js": "^14.26.4",
     "node-cron": "^3.0.3",
+    "sharp": "^0.34.5",
     "zod": "^4.4.3"
   },
   "devDependencies": {
