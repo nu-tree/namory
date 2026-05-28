@@ -12,6 +12,17 @@ const SAVE_NUDGE_KEYWORDS = [
   "약속",
   "목표",
   "선호",
+  // 배움 신호
+  "배웠",
+  "배움",
+  // 결심/다짐
+  "결심",
+  // 계획 수립
+  "계획",
+  // "~하기로 했어" — 매우 흔한 결정 표현
+  "하기로",
+  // "~할 예정"
+  "예정",
 ];
 
 export function applySaveNudge(prompt: string): string {
