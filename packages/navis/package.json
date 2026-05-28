@@ -1,11 +1,19 @@
 {
   "name": "navis",
   "version": "0.1.0",
-  "description": "navis — namory의 디스코드 ↔ Claude 양방향 에이전트",
+  "description": "navis — namory의 디스코드 ↔ Claude 양방향 에이전트 + CLI",
   "type": "module",
+  "bin": {
+    "navis": "./dist/bin.js"
+  },
+  "files": [
+    "dist",
+    "package.json",
+    "README.md"
+  ],
   "scripts": {
     "dev": "tsx watch --env-file-if-exists=.env src/index.ts",
-    "build": "tsc",
+    "build": "tsc && chmod +x dist/bin.js",
     "start": "node --env-file-if-exists=.env dist/index.js",
     "cli": "tsx --env-file-if-exists=.env src/cli.tsx"
   },
