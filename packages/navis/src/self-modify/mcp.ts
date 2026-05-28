@@ -95,12 +95,16 @@ export function buildSelfModifyTools(channelId: string): McpSdkServerConfigWithI
           if (!res.ok) {
             pendingDispatches.delete(dispatchId);
             const body = await res.text();
+            console.error(
+              `[self-modify] dispatch 실패 status=${res.status} body=${body} repo=${config.githubRepo}`,
+            );
             return err(
               `GitHub dispatch 실패: ${res.status} ${body}. ` +
                 `토큰 권한(Actions:Write) 또는 GITHUB_REPO 값 확인.`,
             );
           }
 
+          console.log(`[self-modify] dispatch 성공 id=${dispatchId} channel=${channelId}`);
           return ok(
             `코드 수정 서브에이전트에게 작업 의뢰 전송 완료 (dispatch_id=${dispatchId}). ` +
               `Actions 가 격리 환경에서 코드를 수정하고 PR 을 만들면 별도 메시지로 보고됨. ` +
