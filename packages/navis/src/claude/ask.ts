@@ -40,6 +40,17 @@ export async function askClaude(
   let sessionId = "";
   let contextTokens = 0;
   let saved = false;
+  // 에이전트 루프 마지막 assistant 턴의 usage 를 기억해두기 위한 변수.
+  // result.usage 는 루프 내부 모든 API 호출의 누적이라 cache_read 가 매 턴 중복
+  // 카운트돼 도구 몇 번 쓰면 컨텍스트가 5~10배 부풀려진다(한도에 비정상적으로 빨리
+  // 도달). 정확한 "지금 컨텍스트 크기" 는 마지막 호출의 프롬프트 토큰 합.
+  let lastAssistantUsage:
+    | {
+        input_tokens?: number;
+        cache_read_input_tokens?: number;
+        cache_creation_input_tokens?: number;
+      }
+    | undefined;
 
   // 키워드 너지(B): 사용자 메시지에 결정/약속/할 일/배움 신호가 보이면 메인 턴에도
   // save 호출을 상기시키는 가벼운 힌트를 앞에 붙인다. 사후 큐레이터(A)가 그물이지만
@@ -137,6 +148,8 @@ export async function askClaude(
     },
   })) {
     // 턴 중 save 도구가 실제로 호출됐는지 감지 → 💡 리액션 트리거.
+    // 동시에 이 턴의 usage 를 기록해 마지막 turn 이 끝나면 그 값을 컨텍스트
+    // 크기로 사용한다(누적 합인 result.usage 는 부정확함).
     if (message.type === "assistant") {
       const content = message.message.content;
       if (Array.isArray(content)) {
@@ -146,12 +159,18 @@ export async function askClaude(
           }
         }
       }
+      const u = (message.message as unknown as { usage?: typeof lastAssistantUsage })
+        .usage;
+      if (u) lastAssistantUsage = u;
     }
 
     if (message.type === "result") {
       sessionId = message.session_id;
-      // 현재 컨텍스트 크기 = 프롬프트 측 토큰 합 (캐시 포함).
-      const u = message.usage as unknown as Record<string, number | undefined>;
+      // 현재 컨텍스트 크기 = 마지막 assistant 호출의 프롬프트 토큰 합.
+      // result.usage 는 에이전트 루프 모든 내부 API 호출의 누적치라 cache_read 가
+      // 매 턴 중복돼 부정확. 마지막 호출의 input + cache_read + cache_creation 이
+      // 그 시점에서 모델로 보낸 실제 프롬프트 크기 = 컨텍스트 윈도 사용량.
+      const u = lastAssistantUsage ?? {};
       contextTokens =
         (u.input_tokens ?? 0) +
         (u.cache_read_input_tokens ?? 0) +
