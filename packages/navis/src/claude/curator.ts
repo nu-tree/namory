@@ -79,7 +79,7 @@ export async function curateTurn(input: CurateInput): Promise<void> {
       prompt: turn,
       options: {
         // 저렴한 빠른 모델로 충분 — 분류·요약·짧은 호출 위주.
-        model: "claude-haiku-4-5-20251001",
+        model: config.curatorModel,
         systemPrompt: CURATOR_SYSTEM_PROMPT,
         mcpServers: {
           namory: {
@@ -92,8 +92,8 @@ export async function curateTurn(input: CurateInput): Promise<void> {
         // 권한 최소화: save + recall만. profile_update/update/delete는 절대 X.
         allowedTools: ["mcp__namory__save", "mcp__namory__recall"],
         settingSources: [],
-        // recall 1~몇 회 + save 여러 회를 한 번에 처리할 여유.
-        maxTurns: 16,
+        // recall 1~몇 회 + save 여러 회면 충분 — 루프 폭주 시 비용 상한.
+        maxTurns: 8,
       },
     })) {
       // 메시지 스트림은 소비만 — 큐레이터는 사용자에게 텍스트를 보내지 않는다.
