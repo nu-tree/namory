@@ -1,6 +1,8 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { config } from "../config.js";
 
+const CURATOR_MODEL = "claude-haiku-4-5-20251001" as const;
+
 // 사후 큐레이터(post-turn curator) — 메인 턴이 끝난 뒤 별도 LLM 호출이 "방금 턴에서
 // 뭘 저장할지"만 판단·실행한다. 시스템 프롬프트로만 저장을 유도할 때 누락되던
 // 문제를 결정론적으로 메우는 그물.
@@ -79,7 +81,7 @@ export async function curateTurn(input: CurateInput): Promise<void> {
       prompt: turn,
       options: {
         // 저렴한 빠른 모델로 충분 — 분류·요약·짧은 호출 위주.
-        model: "claude-haiku-4-5-20251001",
+        model: CURATOR_MODEL,
         systemPrompt: CURATOR_SYSTEM_PROMPT,
         mcpServers: {
           namory: {
@@ -93,7 +95,7 @@ export async function curateTurn(input: CurateInput): Promise<void> {
         allowedTools: ["mcp__namory__save", "mcp__namory__recall"],
         settingSources: [],
         // recall 1~몇 회 + save 여러 회를 한 번에 처리할 여유.
-        maxTurns: 16,
+        maxTurns: 8,
       },
     })) {
       // 메시지 스트림은 소비만 — 큐레이터는 사용자에게 텍스트를 보내지 않는다.
