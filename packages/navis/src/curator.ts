@@ -49,6 +49,9 @@ function worthCurating(userText: string, assistantText: string): boolean {
 interface CurateInput {
   userText: string;
   assistantText: string;
+  // CLI에서 감지된 프로젝트명(있으면). 큐레이터가 저장하는 항목도 같은 프로젝트로
+  // 태깅돼 메인 턴의 저장과 일관성을 유지한다.
+  projectContext?: string;
 }
 
 // 한 턴을 큐레이팅한다. 실패는 삼킴 — 사용자 흐름을 막지 않는 게 최우선.
@@ -58,13 +61,18 @@ export async function curateTurn(input: CurateInput): Promise<void> {
   // 큐레이터에 넣을 턴 본문. 사용자/어시스턴트 구분을 명시해 인용·혼동 방지.
   const turn = [
     "다음은 방금 끝난 한 턴이다. 저장 가치가 있는 항목만 namory에 저장하라.",
+    input.projectContext
+      ? `(현재 작업 프로젝트: "${input.projectContext}" — save 호출 시 project: "${input.projectContext}" 부착)`
+      : "",
     "",
     "[사용자]",
     input.userText.trim() || "(텍스트 없음)",
     "",
     "[어시스턴트]",
     input.assistantText.trim(),
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   try {
     for await (const _msg of query({

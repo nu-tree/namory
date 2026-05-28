@@ -86,6 +86,9 @@ export async function askClaude(
   // 신뢰된 자동화(주간 다이제스트)에서만 true. profile_update를 일시 허용해
   // 자기이해 프로필을 자동 갱신한다. 사용자 대화 경로에선 항상 false(인젝션 방어).
   allowProfileUpdate = false,
+  // CLI에서 감지된 프로젝트명(있으면). 시스템 프롬프트에 부속문을 붙여
+  // 이 대화에서 발생하는 save 호출이 자동으로 project 태그를 부착하게 한다.
+  projectContext?: string,
 ): Promise<AskResult> {
   let text = "";
   let sessionId = "";
@@ -120,11 +123,17 @@ export async function askClaude(
     extraToolNames.push("mcp__google");
   }
 
+  // 프로젝트 컨텍스트가 있으면 시스템 프롬프트에 부속문을 합성. 코드로 강제 인젝션
+  // 하지 않고 모델에 지시 — 큐레이터도 같은 규칙으로 따라온다.
+  const systemPromptFinal = projectContext
+    ? `${config.systemPrompt}\n\n[운영 컨텍스트] 현재 작업 프로젝트: "${projectContext}". 이 대화에서 mcp__namory__save 를 호출할 때 모든 항목에 project: "${projectContext}" 를 명시할 것.`
+    : config.systemPrompt;
+
   for await (const message of query({
     prompt: promptInput,
     options: {
       model: config.model,
-      systemPrompt: config.systemPrompt,
+      systemPrompt: systemPromptFinal,
       // namory를 HTTP MCP 서버로 연결. 토큰은 Authorization 헤더로 전달.
       mcpServers: {
         namory: {
