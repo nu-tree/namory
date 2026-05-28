@@ -67,12 +67,13 @@ export const config = {
   namoryToken: required("NAMORY_TOKEN"),
 
   // 모델 (구독 한도에 따라 가용 모델 다름). 기본 sonnet = 비용/품질 균형.
-  model: process.env.AGENT_MODEL ?? "claude-sonnet-4-6",
+  // 운영 튜닝 상수 — 바꾸려면 코드 수정(보안·환경 무관 값은 env로 빼지 않는다).
+  model: "claude-sonnet-4-6",
 
   // 대화 맥락 유지 한도(토큰). 한 대화의 컨텍스트가 이걸 넘으면 다음 메시지부터
   // 새 세션으로 리셋하고 사용자에게 알린다. 잊힌 맥락은 namory가 받쳐줌.
   // 기본 100k = sonnet 200k 창의 절반. 모델 한계·SDK 자동압축 전에 우리가 제어.
-  contextTokenLimit: Number(process.env.CONTEXT_TOKEN_LIMIT) || 100000,
+  contextTokenLimit: 100_000,
 
   // 부가 외부 MCP 연동 (선택). 토큰이 있을 때만 navis가 붙인다.
   // 노션: OAuth를 피하려고 호스팅 MCP가 아니라 self-host(@notionhq/notion-mcp-server)를
@@ -90,10 +91,10 @@ export const config = {
   // 주간 기억 다이제스트: navis가 정기적으로 최근 기억을 요약해 자기이해 프로필에
   // 반영하고(자동 압축), 요약을 디스코드로 보고한다. namory의 수동 profile_update
   // 누락을 메우는 자동화. 이 경로에서만 profile_update를 허용(대화 경로는 계속 차단).
-  digestSchedule: process.env.DIGEST_SCHEDULE || "0 9 * * 1", // 월요일 09시
-  digestTimezone: process.env.DIGEST_TIMEZONE || "Asia/Seoul",
-  // 요약 대상 기간(일). 기본 7 = 지난 한 주.
-  digestDays: Number(process.env.DIGEST_DAYS) || 7,
+  // 스케줄·기간은 운영 튜닝이라 코드 상수, 채널 id는 배포 의존이라 env.
+  digestSchedule: "0 9 * * 1", // 월요일 09시 KST
+  digestTimezone: "Asia/Seoul",
+  digestDays: 7, // 요약 대상 기간(일) — 지난 한 주
   // 요약을 보고할 디스코드 채널(선택). 없으면 프로필만 갱신하고 포스팅은 생략.
   digestChannelId: optional("DIGEST_CHANNEL_ID"),
 
