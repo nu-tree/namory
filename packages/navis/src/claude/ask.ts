@@ -81,9 +81,21 @@ export async function askClaude(
 
   // 프로젝트 컨텍스트가 있으면 시스템 프롬프트에 부속문을 합성. 코드로 강제 인젝션
   // 하지 않고 모델에 지시 — 큐레이터도 같은 규칙으로 따라온다.
-  const systemPromptFinal = projectContext
+  let systemPromptFinal = projectContext
     ? `${config.systemPrompt}\n\n[운영 컨텍스트] 현재 작업 프로젝트: "${projectContext}". 이 대화에서 mcp__namory__save 를 호출할 때 모든 항목에 project: "${projectContext}" 를 명시할 것.`
     : config.systemPrompt;
+
+  // 디스코드 모드(channelId 있음) 운영 안내. 컨테이너에 소스 파일이 없어서
+  // Edit/Write/Bash 로 자기 코드를 직접 수정할 수 없다 — 모델이 그걸 시도하다
+  // 실패하고 "셸 접근 막혔다" 같은 답변을 하지 않도록 명시.
+  if (channelId) {
+    systemPromptFinal +=
+      "\n\n[디스코드 모드 안내]\n" +
+      "- 이 환경(Railway 컨테이너)에는 소스 파일이 없다. Edit/Write/Bash 로 자기 자신(packages/navis, packages/namory)을 직접 수정하려 시도하지 말 것.\n" +
+      "- 자기 코드 수정 요청은 반드시 mcp__self_modify__request_self_modification 도구로 GitHub Actions 의 코드 수정 서브에이전트에게 위임. 즉시 트리거만 던지면 작업·검토 결과는 별도 메시지로 비동기 보고됨.\n" +
+      "- 자기 코드 조회는 mcp__repo__read_repo_file / mcp__repo__list_repo_files 사용.\n" +
+      "- 사용자 시스템의 다른 파일·셸 작업은 평소대로 허용(자기 수정만 위임).";
+  }
 
   for await (const message of query({
     prompt: promptInput,
