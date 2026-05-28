@@ -87,6 +87,16 @@ export const config = {
   //   3) GOOGLE_MCP_URL HTTP 경로 제거하고 캘린더 MCP 서버를 stdio로 spawn.
   google: optionalMcp("google", "GOOGLE_MCP_URL", "GOOGLE_TOKEN"),
 
+  // 주간 기억 다이제스트: navis가 정기적으로 최근 기억을 요약해 자기이해 프로필에
+  // 반영하고(자동 압축), 요약을 디스코드로 보고한다. namory의 수동 profile_update
+  // 누락을 메우는 자동화. 이 경로에서만 profile_update를 허용(대화 경로는 계속 차단).
+  digestSchedule: process.env.DIGEST_SCHEDULE || "0 9 * * 1", // 월요일 09시
+  digestTimezone: process.env.DIGEST_TIMEZONE || "Asia/Seoul",
+  // 요약 대상 기간(일). 기본 7 = 지난 한 주.
+  digestDays: Number(process.env.DIGEST_DAYS) || 7,
+  // 요약을 보고할 디스코드 채널(선택). 없으면 프로필만 갱신하고 포스팅은 생략.
+  digestChannelId: optional("DIGEST_CHANNEL_ID"),
+
   // 봇 성격·행동 지침. 코드에 두지 않고 SYSTEM_PROMPT 환경변수로만 주입한다
   // (레포 공개 대비 — 프롬프트는 .env / Railway 변수에만 존재). 없으면 즉시 종료.
   systemPrompt: required("SYSTEM_PROMPT"),

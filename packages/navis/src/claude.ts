@@ -83,6 +83,9 @@ export async function askClaude(
   resumeSessionId?: string,
   images: InputImage[] = [],
   channelId?: string,
+  // 신뢰된 자동화(주간 다이제스트)에서만 true. profile_update를 일시 허용해
+  // 자기이해 프로필을 자동 갱신한다. 사용자 대화 경로에선 항상 false(인젝션 방어).
+  allowProfileUpdate = false,
 ): Promise<AskResult> {
   let text = "";
   let sessionId = "";
@@ -132,8 +135,10 @@ export async function askClaude(
       // 자동 승인 도구: namory + (대화 중이면) 크론 도구 + WebSearch + 부가 연동(노션/구글).
       // allowedTools를 지정한 순간 이건 허용목록으로 동작하므로, 내장 WebSearch도
       // 명시적으로 넣어줘야 헤드리스 환경에서 권한 막힘 없이 실제로 검색이 돈다.
+      // profile_update는 신뢰된 다이제스트 경로(allowProfileUpdate)에서만 추가.
       allowedTools: [
         ...NAMORY_TOOLS,
+        ...(allowProfileUpdate ? ["mcp__namory__profile_update"] : []),
         ...(cronServer ? CRON_TOOL_NAMES : []),
         "WebSearch",
         ...extraToolNames,
