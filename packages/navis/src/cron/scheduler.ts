@@ -1,55 +1,12 @@
 import cron, { type ScheduledTask } from "node-cron";
 import type { Client } from "discord.js";
-import { config } from "./config.js";
-import { askClaude } from "./claude.js";
-import { chunk } from "./discord.js";
+import { askClaude } from "../claude/ask.js";
+import { sendToChannel } from "../discord/send.js";
+import { fetchCrons, type CronRow } from "./api.js";
 
 // 선제적 알림 스케줄러. 영속화는 namory(REST /crons)가, 스케줄링/전송은 여기서.
 // 부팅 시 namory에서 잡을 읽어 등록하고, 발동하면 askClaude로 실행해 채널로 보낸다.
 
-export interface CronRow {
-  id: string;
-  title: string;
-  schedule: string;
-  timezone: string;
-  prompt: string;
-  channelId: string;
-  enabled: boolean;
-}
-
-// namoryMcpUrl(".../mcp")에서 베이스 URL을 떼어 REST(/crons)에 쓴다.
-const BASE = config.namoryMcpUrl.replace(/\/mcp\/?$/, "");
-const auth = { Authorization: `Bearer ${config.namoryToken}` };
-
-export async function fetchCrons(): Promise<CronRow[]> {
-  const res = await fetch(`${BASE}/crons`, { headers: auth });
-  if (!res.ok) throw new Error(`크론 조회 실패: ${res.status}`);
-  const data = (await res.json()) as { crons?: CronRow[] };
-  return data.crons ?? [];
-}
-
-export async function createCronRemote(input: {
-  title: string;
-  schedule: string;
-  prompt: string;
-  channelId: string;
-  timezone?: string;
-}): Promise<CronRow> {
-  const res = await fetch(`${BASE}/crons`, {
-    method: "POST",
-    headers: { ...auth, "content-type": "application/json" },
-    body: JSON.stringify(input),
-  });
-  if (!res.ok) throw new Error(`크론 생성 실패: ${res.status} ${await res.text()}`);
-  return (await res.json()) as CronRow;
-}
-
-export async function deleteCronRemote(id: string): Promise<void> {
-  const res = await fetch(`${BASE}/crons/${id}`, { method: "DELETE", headers: auth });
-  if (!res.ok) throw new Error(`크론 삭제 실패: ${res.status}`);
-}
-
-// ── 스케줄러 상태 ──────────────────────────────────────────────
 // id → {task, sig}. sig는 schedule|timezone|enabled 로, 바뀐 잡만 다시 건다.
 const jobs = new Map<string, { task: ScheduledTask; sig: string }>();
 let discord: Client;
@@ -89,19 +46,10 @@ async function runCron(c: CronRow): Promise<void> {
   console.log(`[cron] 발동: '${c.title}'`);
   try {
     const { text } = await askClaude(c.prompt);
-    await sendToChannel(c.channelId, text);
+    await sendToChannel(discord, c.channelId, text, "cron");
   } catch (err) {
     console.error(`[cron] '${c.title}' 실행 실패:`, err);
   }
-}
-
-async function sendToChannel(channelId: string, text: string): Promise<void> {
-  const ch = await discord.channels.fetch(channelId).catch(() => null);
-  if (!ch || !ch.isSendable()) {
-    console.error(`[cron] 채널 전송 불가: ${channelId}`);
-    return;
-  }
-  for (const part of chunk(text)) await ch.send(part);
 }
 
 // namory의 잡 목록과 현재 등록 상태를 맞춘다(추가/변경/삭제 반영).

@@ -1,5 +1,5 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import { config } from "./config.js";
+import { config } from "../config.js";
 
 // 사후 큐레이터(post-turn curator) — 메인 턴이 끝난 뒤 별도 LLM 호출이 "방금 턴에서
 // 뭘 저장할지"만 판단·실행한다. 시스템 프롬프트로만 저장을 유도할 때 누락되던

@@ -1,4 +1,32 @@
 // 환경변수 로딩 + 검증. 누락 시 즉시 죽어서 잘못된 설정으로 떠 있는 걸 막는다.
+//
+// env 파일 자동 로드 — 본 모듈이 평가되기 직전에 실행돼 process.env를 채운 뒤
+// required()/optional() 검증이 동작한다. 우선순위:
+//   1) 현재 디렉터리의 .env  (개발용)
+//   2) ~/.config/navis/env    (글로벌 설치용 — XDG 표준)
+//   3) 이미 export 된 process.env (가장 마지막에 우선 — Railway 등 호스팅 환경)
+// Node 21.7+ 의 process.loadEnvFile()을 사용 — 별도 dotenv 의존성 불필요.
+
+import { existsSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
+
+(function loadEnvFiles(): void {
+  const candidates = [
+    join(process.cwd(), ".env"),
+    join(homedir(), ".config", "navis", "env"),
+  ];
+  for (const path of candidates) {
+    if (existsSync(path)) {
+      try {
+        process.loadEnvFile(path);
+        return; // 첫 번째로 찾은 파일만 로드(우선순위 보존)
+      } catch (err) {
+        console.error(`[config] env 파일 로드 실패: ${path}`, err);
+      }
+    }
+  }
+})();
 
 function required(name: string): string {
   const v = process.env[name];

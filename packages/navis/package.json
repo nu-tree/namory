@@ -4,7 +4,7 @@
   "description": "navis — namory의 디스코드 ↔ Claude 양방향 에이전트 + CLI",
   "type": "module",
   "bin": {
-    "navis": "./dist/bin.js"
+    "navis": "./dist/cli.js"
   },
   "files": [
     "dist",
@@ -12,10 +12,10 @@
     "README.md"
   ],
   "scripts": {
-    "dev": "tsx watch --env-file-if-exists=.env src/index.ts",
-    "build": "tsc && chmod +x dist/bin.js",
-    "start": "node --env-file-if-exists=.env dist/index.js",
-    "cli": "tsx --env-file-if-exists=.env src/cli.tsx"
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc && chmod +x dist/cli.js",
+    "start": "node dist/index.js",
+    "cli": "tsx src/cli.tsx"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.152",

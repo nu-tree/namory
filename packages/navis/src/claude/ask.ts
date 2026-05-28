@@ -1,75 +1,19 @@
 import { query, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
-import { config } from "./config.js";
-import { buildCronTools, CRON_TOOL_NAMES } from "./cron-tools.js";
-
-// 디스코드 첨부 이미지를 Claude에 넘길 때 쓰는 형태. data는 base64(접두사 없음).
-// media_type은 Anthropic이 받는 4종으로 한정한다.
-export interface InputImage {
-  mediaType: "image/jpeg" | "image/png" | "image/gif" | "image/webp";
-  data: string;
-}
-
-// namory MCP 서버에서 navis에 허용할 도구.
-// 읽기(recall/recent/profile_show/pattern/todos) + 추가(save) + 수정(update).
-// update는 todo 완료 처리·기억 수정용이며, 시스템 프롬프트에서 "사용자가 명시적으로
-// 요청할 때만" 쓰도록 가드한다. 비가역 삭제(delete)와 profile_update는 미허용 —
-// navis는 인젝션 위험 surface라 기억을 지우거나 프로필을 자동으로 덮어쓰지 못하게 한다.
-const NAMORY_TOOLS = [
-  "mcp__namory__recall",
-  "mcp__namory__recent",
-  "mcp__namory__profile_show",
-  "mcp__namory__pattern",
-  "mcp__namory__todos",
-  "mcp__namory__save",
-  "mcp__namory__update",
-];
-
-// navis가 붙이는 외부 HTTP MCP 서버 설정 형태. 토큰은 Authorization 헤더로 전달.
-interface McpHttpServer {
-  type: "http";
-  url: string;
-  headers: { Authorization: string };
-  alwaysLoad: true;
-}
-
-// self-host stdio MCP 서버 설정 형태(노션처럼 OAuth 회피용으로 프로세스를 직접 띄움).
-interface McpStdioServer {
-  type: "stdio";
-  command: string;
-  args: string[];
-  env: Record<string, string>;
-}
-
-// {url, token} 한 쌍을 HTTP MCP 서버 설정으로 변환. namory 연결과 동일한 패턴.
-function httpMcp(conn: { url: string; token: string }): McpHttpServer {
-  return {
-    type: "http",
-    url: conn.url,
-    headers: { Authorization: `Bearer ${conn.token}` },
-    alwaysLoad: true,
-  };
-}
-
-// 노션 self-host MCP를 stdio로 띄우는 설정. 내부 통합 토큰을 NOTION_TOKEN으로 주입하면
-// 패키지가 Authorization 헤더 + Notion-Version을 알아서 붙인다. OAuth 없이 정적 토큰만 사용.
-function notionStdio(token: string): McpStdioServer {
-  return {
-    type: "stdio",
-    command: "npx",
-    args: ["-y", "@notionhq/notion-mcp-server"],
-    env: { NOTION_TOKEN: token },
-  };
-}
-
-export interface AskResult {
-  text: string;
-  // 이 대화의 세션 id. 다음 메시지에서 resume 으로 넘기면 맥락이 이어진다.
-  sessionId: string;
-  // 직전 턴의 입력 컨텍스트 토큰 수. 이게 임계를 넘으면 다음 대화는 새 세션으로 리셋.
-  contextTokens: number;
-  // 이번 턴에 namory에 새 기억을 저장했는지. 디스코드에서 💡 리액션 표시에 쓴다.
-  saved: boolean;
-}
+import { config } from "../config.js";
+import { buildCronTools, CRON_TOOL_NAMES } from "../cron/mcp.js";
+import {
+  BUILTIN_TOOLS,
+  NAMORY_PROFILE_UPDATE_TOOL,
+  NAMORY_TOOLS,
+} from "./allowed-tools.js";
+import {
+  httpMcp,
+  notionStdio,
+  type McpHttpServer,
+  type McpStdioServer,
+} from "./mcp.js";
+import { applySaveNudge } from "./nudge.js";
+import type { AskResult, InputImage } from "./types.js";
 
 // 프롬프트 한 개를 Claude에 넣고 답변 + 세션 정보를 받는다.
 // resumeSessionId 가 있으면 그 대화를 이어받는다(멀티턴). 없으면 새 대화.
@@ -146,16 +90,14 @@ export async function askClaude(
         ...(cronServer ? { cron: cronServer } : {}),
         ...extraServers,
       },
-      // 자동 승인 도구: namory + (대화 중이면) 크론 도구 + WebSearch/WebFetch + 부가 연동.
-      // allowedTools를 지정한 순간 이건 허용목록으로 동작하므로, 내장 도구도 명시해야
-      // 헤드리스 환경에서 권한 막힘 없이 동작한다. (WebSearch=검색, WebFetch=URL 가져오기)
-      // profile_update는 신뢰된 다이제스트 경로(allowProfileUpdate)에서만 추가.
+      // 자동 승인 도구: namory + 내장(파일/셸/웹/탐색) + (대화 중이면) 크론 + 부가 연동.
+      // 목록은 ./allowed-tools.ts 한 곳에서 관리. profile_update는 신뢰된 다이제스트
+      // 경로(allowProfileUpdate)에서만 추가.
       allowedTools: [
         ...NAMORY_TOOLS,
-        ...(allowProfileUpdate ? ["mcp__namory__profile_update"] : []),
+        ...(allowProfileUpdate ? [NAMORY_PROFILE_UPDATE_TOOL] : []),
         ...(cronServer ? CRON_TOOL_NAMES : []),
-        "WebSearch",
-        "WebFetch",
+        ...BUILTIN_TOOLS,
         ...extraToolNames,
       ],
       // 로컬 설정(CLAUDE.md, settings.json) 무시.
@@ -195,29 +137,6 @@ export async function askClaude(
   }
 
   return { text: text.trim() || "(빈 응답)", sessionId, contextTokens, saved };
-}
-
-// 저장 너지 키워드 — 결정/약속/할 일/배움/선호 신호. 보수적으로 골라 false positive 최소화.
-// 매칭되면 사용자 메시지 앞에 가벼운 메타 힌트를 붙여 메인 턴이 save 호출을 검토하도록 유도.
-const SAVE_NUDGE_KEYWORDS = [
-  "결정",
-  "정했",
-  "기억해",
-  "잊지",
-  "할 일",
-  "할일",
-  "todo",
-  "TODO",
-  "약속",
-  "목표",
-  "선호",
-];
-
-function applySaveNudge(prompt: string): string {
-  if (!prompt) return prompt;
-  const hit = SAVE_NUDGE_KEYWORDS.some((k) => prompt.includes(k));
-  if (!hit) return prompt;
-  return `[자동 메모] 이번 사용자 메시지에 결정/약속/할 일/배움 신호가 보입니다. 답변하면서 mcp__namory__save 호출을 함께 고려하세요(맞으면 카테고리·project 태깅, 아니면 무시).\n\n${prompt}`;
 }
 
 // 텍스트(있으면) + 이미지들을 하나의 user 메시지로 묶어 yield 하는 async generator.

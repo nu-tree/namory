@@ -1,8 +1,8 @@
 import cron from "node-cron";
 import type { Client } from "discord.js";
 import { config } from "./config.js";
-import { askClaude } from "./claude.js";
-import { chunk } from "./discord.js";
+import { askClaude } from "./claude/ask.js";
+import { sendToChannel } from "./discord/send.js";
 
 // 주간 기억 다이제스트 — navis가 정기적으로 최근 기억을 요약해 자기이해 프로필에
 // 반영(자동 압축)하고 요약을 디스코드로 보고한다. namory의 수동 profile_update
@@ -43,22 +43,18 @@ export async function runDigest(): Promise<void> {
       true, // profile_update 허용 (신뢰된 자동화 경로)
     );
     if (config.digestChannelId) {
-      await sendToChannel(config.digestChannelId, `🧠 **주간 기억 다이제스트**\n\n${text}`);
+      await sendToChannel(
+        discord,
+        config.digestChannelId,
+        `🧠 **주간 기억 다이제스트**\n\n${text}`,
+        "digest",
+      );
     } else {
       console.log("[digest] DIGEST_CHANNEL_ID 미설정 — 프로필만 갱신, 포스팅 생략");
     }
   } catch (err) {
     console.error("[digest] 실행 실패:", err);
   }
-}
-
-async function sendToChannel(channelId: string, text: string): Promise<void> {
-  const ch = await discord.channels.fetch(channelId).catch(() => null);
-  if (!ch || !ch.isSendable()) {
-    console.error(`[digest] 채널 전송 불가: ${channelId}`);
-    return;
-  }
-  for (const part of chunk(text)) await ch.send(part);
 }
 
 // 부팅 시 호출. digestSchedule(cron 식)에 맞춰 주기 실행을 등록한다.

@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 import { config } from "./config.js";
-import { startDiscord } from "./discord.js";
-import { startCronScheduler } from "./cron.js";
+import { startDiscord } from "./discord/bot.js";
+import { startCronScheduler } from "./cron/scheduler.js";
 import { startDigestScheduler } from "./digest.js";
 
 // 디스코드 게이트웨이 봇 시작 (always-on 워커).

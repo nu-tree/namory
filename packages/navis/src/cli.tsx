@@ -1,10 +1,11 @@
+#!/usr/bin/env node
 import React, { useCallback, useRef, useState } from "react";
 import { render, Box, Static, Text, useApp, useInput } from "ink";
 import TextInput from "ink-text-input";
 import Spinner from "ink-spinner";
 import { config } from "./config.js";
-import { askClaude } from "./claude.js";
-import { curateTurn } from "./curator.js";
+import { askClaude } from "./claude/ask.js";
+import { curateTurn } from "./claude/curator.js";
 import { detectProject } from "./project.js";
 
 // navis CLI — Claude Code 스타일 Ink(React-for-CLI) REPL.
