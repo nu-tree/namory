@@ -35,7 +35,9 @@ export function buildMcpServer(): McpServer {
     {
       title: "기억 저장 (save / store memory)",
       description:
-        "결정·배움·아이디어·감정·사람·할 일에 대한 기록(memory/note/todo)을 임베딩과 함께 저장한다 (save / store / remember). category가 todo면 '안 끝난 할 일'로 시작한다.",
+        "결정·배움·아이디어·감정·사람·할 일에 대한 기록(memory/note/todo)을 임베딩과 함께 저장한다 (save / store / remember). category가 todo면 '안 끝난 할 일'로 시작한다. " +
+        "응답의 duplicates 필드에 유사 기억 후보(코사인 임계값 이상)가 동봉된다 — 비어있지 않으면 update로 병합하거나 그대로 두는 걸 고려할 것. " +
+        "skipIfDuplicate=true 면 후보가 있을 때 저장하지 않고 후보만 반환(skipped:true).",
       inputSchema: {
         content: z.string().min(1).describe("저장할 내용 (한 문장 이상 권장)"),
         category: category.optional().describe("분류 (선택). todo = 할 일"),
@@ -44,6 +46,12 @@ export function buildMcpServer(): McpServer {
           .string()
           .optional()
           .describe("출처 (예: claude-desktop, claude-ios)"),
+        skipIfDuplicate: z
+          .boolean()
+          .optional()
+          .describe(
+            "true면 유사 기억 후보가 있을 때 저장을 건너뛰고 후보만 반환한다(skipped:true). 자동 큐레이션 흐름에서 중복 방지용.",
+          ),
       },
     },
     async (args) => ok(await save(args)),
