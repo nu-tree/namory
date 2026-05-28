@@ -173,6 +173,20 @@ async function handleMessage(message: Message): Promise<void> {
 }
 
 export function startDiscord(): Client {
+  // 디스코드 모드 전용 env 검증. config.ts 는 이 둘을 optional 로 두고(CLI 가 영향 안 받게),
+  // 실제 봇을 띄우는 진입점인 여기서 누락 시 종료한다.
+  const token = config.discordToken;
+  if (!token) {
+    console.error("[discord] DISCORD_TOKEN 누락 — 디스코드 봇 모드는 토큰 필수.");
+    process.exit(1);
+  }
+  if (config.allowedUserIds.length === 0) {
+    console.error(
+      "[discord] ALLOWED_USER_IDS 비어 있음 — 최소 1명 지정 필요(인젝션·무단 사용 차단).",
+    );
+    process.exit(1);
+  }
+
   const client = new Client({
     intents: [
       GatewayIntentBits.Guilds,
@@ -192,7 +206,7 @@ export function startDiscord(): Client {
 
   client.on(Events.MessageCreate, (msg) => void handleMessage(msg));
 
-  client.login(config.discordToken).catch((err) => {
+  client.login(token).catch((err) => {
     console.error("[discord] 로그인 실패:", err);
     process.exit(1);
   });

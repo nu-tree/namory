@@ -34,25 +34,20 @@ function optionalMcp(
   return { url, token };
 }
 
-// 허용된 디스코드 유저 ID만 봇이 응답한다 (프롬프트 인젝션·무단 사용 차단).
-// 쉼표로 여러 개: "123,456"
+// 허용된 디스코드 유저 ID 목록 (쉼표 구분). 디스코드 봇 모드에서만 필수.
+// CLI 모드는 디스코드와 무관하므로 비어 있어도 통과 — 실제 검증은 startDiscord() 진입 시.
 function parseAllowedUsers(): string[] {
   const raw = process.env.ALLOWED_USER_IDS ?? "";
-  const ids = raw
+  return raw
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-  if (ids.length === 0) {
-    console.error(
-      "[config] ALLOWED_USER_IDS 가 비었습니다. 최소 1명 지정 필요.",
-    );
-    process.exit(1);
-  }
-  return ids;
 }
 
 export const config = {
-  discordToken: required("DISCORD_TOKEN"),
+  // 디스코드 봇 모드에서만 필요. CLI 모드(navis 명령)는 사용 안 함.
+  // 실제 사용 진입점(startDiscord)에서 검증해 누락 시 그때 종료한다.
+  discordToken: optional("DISCORD_TOKEN"),
   allowedUserIds: parseAllowedUsers(),
 
   // Claude Code 구독 OAuth 토큰. SDK가 process.env에서 자동으로 읽으므로
