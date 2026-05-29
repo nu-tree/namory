@@ -35,9 +35,18 @@ async function handleMessage(message: Message): Promise<void> {
     return;
   }
 
+  let typingInterval: ReturnType<typeof setInterval> | null = null;
   try {
     // 처리 중 타이핑 표시 (Claude 응답까지 몇 초 걸림).
-    if (message.channel.isSendable()) await message.channel.sendTyping();
+    // Discord typing indicator는 10초 후 자동 소멸하므로 8초마다 갱신.
+    if (message.channel.isSendable()) {
+      await message.channel.sendTyping();
+      typingInterval = setInterval(() => {
+        if (message.channel.isSendable()) {
+          message.channel.sendTyping().catch(() => {});
+        }
+      }, 8_000);
+    }
 
     // 직전 세션이 한도 미만이면 이어받고, 넘었으면(또는 없으면) 새 세션.
     const prev = sessions.get(channelId);
@@ -80,6 +89,8 @@ async function handleMessage(message: Message): Promise<void> {
   } catch (err) {
     console.error("[discord] 처리 실패:", err);
     await message.reply("⚠️ 처리 중 오류가 났어요. 로그를 확인해주세요.");
+  } finally {
+    if (typingInterval) clearInterval(typingInterval);
   }
 }
 
