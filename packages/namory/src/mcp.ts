@@ -9,6 +9,7 @@ import { profileShow, profileUpdate } from "./tools/profile.js";
 import { update } from "./tools/update.js";
 import { remove } from "./tools/remove.js";
 import { todos } from "./tools/todos.js";
+import { graphify } from "./tools/graphify.js";
 
 const category = z.enum(CATEGORIES);
 // 프로젝트 스코프(선택). 저장 시 태그, 조회 시 "그 프로젝트 + 개인 기억"으로 좁힌다.
@@ -52,6 +53,14 @@ export function buildMcpServer(): McpServer {
           .describe(
             "기본 true — 유사 기억이 있으면 저장하지 않고 후보만 반환(skipped:true). 의도적 중복 허용 시 false.",
           ),
+        tags: z
+          .array(z.string())
+          .optional()
+          .describe("태그 목록 (예: ['navis', 'architecture'])"),
+        related_ids: z
+          .array(z.string())
+          .optional()
+          .describe("연결할 기억의 id 목록"),
       },
     },
     async (args) => ok(await save(args)),
@@ -74,6 +83,10 @@ export function buildMcpServer(): McpServer {
           .describe("최대 개수 (기본 5)"),
         category: category.optional().describe("분류 필터 (선택)"),
         project,
+        withRelated: z
+          .boolean()
+          .optional()
+          .describe("true면 연결된 기억(related_ids)도 함께 반환"),
       },
     },
     async (args) => ok(await recall(args)),
@@ -175,6 +188,14 @@ export function buildMcpServer(): McpServer {
           .string()
           .optional()
           .describe("프로젝트 재태깅 (빈 문자열이면 개인 기억으로 되돌림)"),
+        tags: z
+          .array(z.string())
+          .optional()
+          .describe("새 태그 목록 (기존 교체)"),
+        related_ids: z
+          .array(z.string())
+          .optional()
+          .describe("새 연결 id 목록 (기존 교체)"),
       },
     },
     async (args) => ok(await update(args)),
@@ -215,6 +236,27 @@ export function buildMcpServer(): McpServer {
       },
     },
     async (args) => ok(await todos(args)),
+  );
+
+  server.registerTool(
+    "graphify",
+    {
+      title: "기억 그래프 (graphify)",
+      description:
+        "모든 기억을 노드·엣지 그래프로 반환한다. nodes = 기억 목록(tags 포함), edges = related_ids 연결, tag_groups = 태그별 기억 id 목록. 지식 그래프 시각화·탐색에 사용.",
+      inputSchema: {
+        project,
+        category: category.optional().describe("분류 필터 (선택)"),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(500)
+          .optional()
+          .describe("최대 노드 수 (기본 300)"),
+      },
+    },
+    async (args) => ok(await graphify(args)),
   );
 
   return server;

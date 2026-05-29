@@ -11,6 +11,8 @@ export async function update(args: {
   category?: Category;
   done?: boolean;
   project?: string;
+  tags?: string[];
+  related_ids?: string[];
 }) {
   const set: Record<string, unknown> = {};
 
@@ -21,18 +23,24 @@ export async function update(args: {
   if (args.category !== undefined) set.category = args.category;
   // 빈 문자열이면 개인 기억(null)으로 되돌린다.
   if (args.project !== undefined) set.project = args.project || null;
+
+  // metadata 패치는 한 번에 병합 — 여러 필드를 한 update 안에서 같이 바꿔도
+  // 마지막 sql 표현이 앞을 덮어쓰지 않도록 단일 patch 객체로 모은다.
+  const metaPatch: Record<string, unknown> = {};
   if (args.done !== undefined) {
-    // 기존 metadata를 보존하며 done/doneAt만 덮어쓴다 (jsonb || 병합)
-    const patch = {
-      done: args.done,
-      doneAt: args.done ? new Date().toISOString() : null,
-    };
-    set.metadata = sql`${memories.metadata} || ${JSON.stringify(patch)}::jsonb`;
+    metaPatch.done = args.done;
+    metaPatch.doneAt = args.done ? new Date().toISOString() : null;
+  }
+  if (args.tags !== undefined) metaPatch.tags = args.tags;
+  if (args.related_ids !== undefined) metaPatch.related_ids = args.related_ids;
+
+  if (Object.keys(metaPatch).length > 0) {
+    set.metadata = sql`${memories.metadata} || ${JSON.stringify(metaPatch)}::jsonb`;
   }
 
   if (Object.keys(set).length === 0) {
     throw new Error(
-      "수정할 필드가 없습니다 (content / category / done / project 중 하나 필요)",
+      "수정할 필드가 없습니다 (content / category / done / project / tags / related_ids 중 하나 필요)",
     );
   }
 
