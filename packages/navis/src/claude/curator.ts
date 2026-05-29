@@ -52,15 +52,27 @@ interface CurateInput {
   // CLI에서 감지된 프로젝트명(있으면). 큐레이터가 저장하는 항목도 같은 프로젝트로
   // 태깅돼 메인 턴의 저장과 일관성을 유지한다.
   projectContext?: string;
+  // 사용자의 이번 메시지가 navis 의 자발적 팔로업 질문에 대한 응답일 때 그 질문 문장.
+  // 큐레이터가 "결과 정보" 로 인식하고 저장 가치를 더 적극적으로 잡는다.
+  // 또한 답변이 한 글자라도 저장될 수 있게 worthCurating pre-filter 를 우회한다.
+  followupAnswerContext?: string;
 }
 
 // 한 턴을 큐레이팅한다. 실패는 삼킴 — 사용자 흐름을 막지 않는 게 최우선.
 export async function curateTurn(input: CurateInput): Promise<void> {
-  if (!worthCurating(input.userText, input.assistantText)) return;
+  // 팔로업 응답이면 pre-filter 우회 — "응 맛있었어요" 같은 짧은 답도 결과 정보로
+  // 의미가 있어 저장 후보가 된다.
+  if (!input.followupAnswerContext && !worthCurating(input.userText, input.assistantText)) {
+    return;
+  }
 
   // 큐레이터에 넣을 턴 본문. 사용자/어시스턴트 구분을 명시해 인용·혼동 방지.
+  // 팔로업 응답이면 그 맥락을 맨 위에 박아 "결과 정보" 로 인식되게 한다.
   const turn = [
     "다음은 방금 끝난 한 턴이다. 저장 가치가 있는 항목만 namory에 저장하라.",
+    input.followupAnswerContext
+      ? `(맥락: navis 가 이전에 사용자에게 "${input.followupAnswerContext}" 라고 먼저 물었고, 이번 사용자 메시지는 그 질문에 대한 응답이다. 결과·후기·실현 여부 같은 결과 정보로 해석하고 의미 있으면 적극 저장하라.)`
+      : "",
     input.projectContext
       ? `(현재 작업 프로젝트: "${input.projectContext}" — save 호출 시 project: "${input.projectContext}" 부착)`
       : "",
