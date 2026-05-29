@@ -49,6 +49,13 @@ async function runCron(c: CronRow): Promise<void> {
     await sendToChannel(discord, c.channelId, text, "cron");
   } catch (err) {
     console.error(`[cron] '${c.title}' 실행 실패:`, err);
+    // 사용자가 실패를 인지할 수 있도록 Discord 채널에도 알림.
+    sendToChannel(
+      discord,
+      c.channelId,
+      `⚠️ 크론 '${c.title}' 실행에 실패했어요. Railway 로그를 확인해주세요.`,
+      "cron",
+    ).catch(() => {}); // 알림 실패는 무시(무한 루프 방지)
   }
 }
 
