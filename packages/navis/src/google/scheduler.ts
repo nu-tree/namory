@@ -50,8 +50,8 @@ export function startCalendarScheduler(client: Client): void {
     console.log("[calendar] 비활성 (GOOGLE_* env 미설정) — 스케줄러 미시작");
     return;
   }
-  if (!config.calendarChannelId) {
-    console.log("[calendar] CALENDAR_CHANNEL_ID 미설정 — 자동 알림 미시작 (도구는 동작)");
+  if (!config.navisChannelId) {
+    console.log("[calendar] NAVIS_CHANNEL_ID 미설정 — 자동 알림 미시작 (도구는 동작)");
     return;
   }
   cron.schedule(UPCOMING_CHECK_CRON, () => void runUpcomingCheck(), { timezone: TIMEZONE });
@@ -63,7 +63,7 @@ export function startCalendarScheduler(client: Client): void {
 
 // ── 잡 1: 다가오는 일정 알림 ─────────────────────────────────
 async function runUpcomingCheck(): Promise<void> {
-  if (!config.calendarChannelId) return;
+  if (!config.navisChannelId) return;
   try {
     const { cal } = getCalendar();
     const now = new Date();
@@ -98,7 +98,7 @@ async function notifyUpcoming(e: {
   end?: { dateTime?: string | null } | null;
   htmlLink?: string | null;
 }): Promise<void> {
-  if (!config.calendarChannelId) return;
+  if (!config.navisChannelId) return;
   const verdict = await evaluateUpcoming(e);
   const start = e.start?.dateTime
     ? new Date(e.start.dateTime).toLocaleString("ko-KR", { timeZone: TIMEZONE })
@@ -110,7 +110,7 @@ async function notifyUpcoming(e: {
     verdict,
   ];
   if (e.htmlLink) lines.push("", e.htmlLink);
-  await sendToChannel(discord, config.calendarChannelId, lines.join("\n"), "calendar");
+  await sendToChannel(discord, config.navisChannelId, lines.join("\n"), "calendar");
 }
 
 // 다가오는 일정 1건에 대해 sub-agent 가 namory 컨텍스트 보고 짧게 평가.
@@ -174,7 +174,7 @@ async function evaluateUpcoming(e: {
 
 // ── 잡 2: 매일 follow-up ────────────────────────────────────
 async function runDailyFollowup(): Promise<void> {
-  if (!config.calendarChannelId) return;
+  if (!config.navisChannelId) return;
   try {
     const { cal } = getCalendar();
     const now = new Date();
@@ -195,10 +195,10 @@ async function runDailyFollowup(): Promise<void> {
       return;
     }
     const summary = await runFollowupAgent(events);
-    if (summary && config.calendarChannelId) {
+    if (summary && config.navisChannelId) {
       await sendToChannel(
         discord,
-        config.calendarChannelId,
+        config.navisChannelId,
         `**오늘 일정 follow-up**\n\n${summary}`,
         "calendar",
       );

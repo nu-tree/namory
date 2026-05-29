@@ -42,10 +42,10 @@ export async function runDigest(): Promise<void> {
       undefined, // 크론 도구 불필요
       true, // profile_update 허용 (신뢰된 자동화 경로)
     );
-    if (config.digestChannelId) {
+    if (config.navisChannelId) {
       await sendToChannel(
         discord,
-        config.digestChannelId,
+        config.navisChannelId,
         `**주간 기억 다이제스트**\n\n${text}`,
         "digest",
       );

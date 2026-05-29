@@ -141,19 +141,20 @@ export const config = {
   // 발급: Google Cloud Console OAuth 동의 화면(테스트 모드) → Web app 클라이언트 →
   // OAuth Playground 에서 refresh_token 1회 발급(README 참조).
   google: optionalGoogleAuth(),
-  // 캘린더 자동 알림/follow-up 을 보낼 디스코드 채널. 미설정이면 자동 트리거 비활성
-  // (모델 호출 도구는 그대로 동작). DIGEST 와 같은 채널로 박아도 무방.
-  calendarChannelId: optional("CALENDAR_CHANNEL_ID"),
+  // navis 가 사용자에게 먼저 말 거는(자동 트리거) 메시지가 가는 통합 채널.
+  //   - 주간 기억 다이제스트
+  //   - 다가오는 캘린더 일정 알림 + 매일 23시 follow-up
+  //   - (미래) dreaming · 선제 조언 등
+  // 미설정이면 자동 트리거 전체 비활성. 모델이 직접 호출하는 도구는 그대로 동작.
+  navisChannelId: optional("NAVIS_CHANNEL_ID"),
 
   // 주간 기억 다이제스트: navis가 정기적으로 최근 기억을 요약해 자기이해 프로필에
   // 반영하고(자동 압축), 요약을 디스코드로 보고한다. namory의 수동 profile_update
   // 누락을 메우는 자동화. 이 경로에서만 profile_update를 허용(대화 경로는 계속 차단).
-  // 스케줄·기간은 운영 튜닝이라 코드 상수, 채널 id는 배포 의존이라 env.
+  // 스케줄·기간은 운영 튜닝이라 코드 상수, 채널은 navisChannelId 공용.
   digestSchedule: "0 9 * * 1", // 월요일 09시 KST
   digestTimezone: "Asia/Seoul",
   digestDays: 7, // 요약 대상 기간(일) — 지난 한 주
-  // 요약을 보고할 디스코드 채널(선택). 없으면 프로필만 갱신하고 포스팅은 생략.
-  digestChannelId: optional("DIGEST_CHANNEL_ID"),
 
   // 봇 성격·행동 지침. 코드에 두지 않고 SYSTEM_PROMPT 환경변수로만 주입한다
   // (레포 공개 대비 — 프롬프트는 .env / Railway 변수에만 존재). 없으면 즉시 종료.
