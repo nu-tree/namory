@@ -127,7 +127,7 @@ jobs:
           set -x
           claude -p "$PROMPT" \
             --model claude-opus-4-7 \
-            --max-turns 30 \
+            --max-turns 60 \
             --permission-mode bypassPermissions \
             --allowed-tools "Read Write Edit Glob Grep Bash(*)" \
             --verbose
