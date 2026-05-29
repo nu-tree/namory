@@ -81,8 +81,12 @@ async function runUpcomingCheck(): Promise<void> {
       if (!e.id || notifiedEvents.has(e.id)) continue;
       // 종일 일정은 start.date 만 있고 시간 정보 없음 → 임박 알림 대상에서 제외.
       if (!e.start?.dateTime) continue;
-      await notifyUpcoming(e);
-      markNotified(e.id);
+      try {
+        await notifyUpcoming(e);
+      } catch (err) {
+        console.error("[calendar] 일정 알림 발송 실패:", e.id, err);
+      }
+      markNotified(e.id); // 성공/실패 모두 mark — 실패해도 다음 cron에서 중복 알림 방지
     }
   } catch (err) {
     console.error("[calendar] upcoming 실패:", err);
