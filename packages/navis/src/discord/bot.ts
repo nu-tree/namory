@@ -15,6 +15,45 @@ import { chunk } from "./send.js";
 // 영속 맥락은 namory가 담당). contextTokens가 한도를 넘으면 다음 메시지에서 새 세션.
 const sessions = new Map<string, { sessionId: string; contextTokens: number }>();
 
+// 새 세션을 시작할 때 채널 최근 메시지 중 끌어올 개수. 크론 보고처럼 봇 메시지가
+// 끼어 사용자 다음 질문이 "맥락 없음" 으로 보이던 케이스를 메우는 용도 — 너무 크면
+// 첫 프롬프트가 부풀고, 너무 작으면 보고 메시지를 놓친다. 10이 균형.
+const HISTORY_LIMIT = 10;
+
+// 현재 처리 중인 메시지 직전의 채널 메시지들을 텍스트로 묶어 반환.
+// 봇(navis) 자신의 메시지도 포함해 크론/자율 보고가 맥락에 잡히도록 한다.
+// fetch 실패(권한 부족, partial DM 등)는 빈 문자열로 폴백.
+async function fetchRecentHistory(
+  message: Message,
+  limit: number,
+): Promise<string> {
+  const channel = message.channel;
+  // 일부 partial 채널 객체는 messages 매니저가 없을 수 있음.
+  if (!("messages" in channel) || !channel.messages?.fetch) return "";
+  try {
+    const fetched = await channel.messages.fetch({
+      limit,
+      before: message.id,
+    });
+    // fetched 는 newest-first Collection. 시간순(오래된 → 최신)으로 재정렬.
+    const sorted = Array.from(fetched.values()).sort(
+      (a, b) => a.createdTimestamp - b.createdTimestamp,
+    );
+    const lines: string[] = [];
+    for (const m of sorted) {
+      const content = m.content?.trim();
+      // 본문 없는 첨부-only/시스템 메시지는 텍스트 맥락에 의미 없으니 스킵.
+      if (!content) continue;
+      const who = m.author.bot ? "navis" : m.author.username;
+      lines.push(`[${who}]: ${content}`);
+    }
+    return lines.join("\n");
+  } catch (err) {
+    console.error("[discord] 채널 히스토리 조회 실패:", err);
+    return "";
+  }
+}
+
 async function handleMessage(message: Message): Promise<void> {
   // 봇 자신·다른 봇 무시.
   if (message.author.bot) return;
@@ -64,11 +103,20 @@ async function handleMessage(message: Message): Promise<void> {
       );
     }
 
+    // 새 세션 시작(=resumeId 없음)일 때만 채널 직전 메시지를 맥락 보강용으로 끌어옴.
+    // 진행 중 세션은 이미 히스토리를 갖고 있어서 중복 주입은 토큰 낭비.
+    const historyContext = resumeId
+      ? undefined
+      : await fetchRecentHistory(message, HISTORY_LIMIT);
+
     const { text, sessionId, contextTokens, saved } = await askClaude(
       prompt,
       resumeId,
       images,
       channelId,
+      false,
+      undefined,
+      historyContext || undefined,
     );
     sessions.set(channelId, { sessionId, contextTokens });
 
