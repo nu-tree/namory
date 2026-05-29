@@ -62,6 +62,24 @@ function optionalMcp(
   return { url, token };
 }
 
+// 구글 OAuth 3개 (client_id + secret + refresh_token) 가 다 채워졌을 때만 인증 설정을
+// 돌려준다. 하나라도 비면 캘린더 비활성. 부분 설정 시 한 줄 경고.
+function optionalGoogleAuth():
+  | { clientId: string; clientSecret: string; refreshToken: string }
+  | undefined {
+  const clientId = optional("GOOGLE_CLIENT_ID");
+  const clientSecret = optional("GOOGLE_CLIENT_SECRET");
+  const refreshToken = optional("GOOGLE_REFRESH_TOKEN");
+  if (!clientId && !clientSecret && !refreshToken) return undefined;
+  if (!clientId || !clientSecret || !refreshToken) {
+    console.warn(
+      "[config] google 캘린더 비활성: GOOGLE_CLIENT_ID/SECRET/REFRESH_TOKEN 셋 다 필요한데 일부만 설정됨.",
+    );
+    return undefined;
+  }
+  return { clientId, clientSecret, refreshToken };
+}
+
 // 허용된 디스코드 유저 ID 목록 (쉼표 구분). 디스코드 봇 모드에서만 필수.
 // CLI 모드는 디스코드와 무관하므로 비어 있어도 통과 — 실제 검증은 startDiscord() 진입 시.
 function parseAllowedUsers(): string[] {
@@ -117,13 +135,15 @@ export const config = {
   // navis 안에서 stdio로 띄우고, 내부 통합 토큰(ntn_...)만 주입한다. URL 불필요.
   // notion.so/my-integrations 에서 발급 후 봇이 쓸 페이지/DB를 해당 통합에 공유할 것.
   notionToken: optional("NOTION_TOKEN"),
-  // 구글 캘린더: 보류. 현재 HTTP+Bearer 스켈레톤은 사실상 미동작 —
-  // 구글 사용자 데이터는 정적 토큰이 없고 access token이 1시간이면 만료되기 때문.
-  // TODO(구글 캘린더): 노션처럼 self-host stdio MCP + OAuth refresh token 구조로 전환.
-  //   1) Google Cloud Console에서 OAuth 데스크톱 클라이언트 발급(client_id/secret)
-  //   2) 로컬에서 1회 동의 → refresh_token 획득 → env 주입
-  //   3) GOOGLE_MCP_URL HTTP 경로 제거하고 캘린더 MCP 서버를 stdio로 spawn.
-  google: optionalMcp("google", "GOOGLE_MCP_URL", "GOOGLE_TOKEN"),
+
+  // 구글 캘린더 OAuth (refresh token 방식, 영구).
+  // 셋 다 채워져야 캘린더 도구·스케줄러가 활성화됨. 미설정이면 조용히 비활성.
+  // 발급: Google Cloud Console OAuth 동의 화면(테스트 모드) → Web app 클라이언트 →
+  // OAuth Playground 에서 refresh_token 1회 발급(README 참조).
+  google: optionalGoogleAuth(),
+  // 캘린더 자동 알림/follow-up 을 보낼 디스코드 채널. 미설정이면 자동 트리거 비활성
+  // (모델 호출 도구는 그대로 동작). DIGEST 와 같은 채널로 박아도 무방.
+  calendarChannelId: optional("CALENDAR_CHANNEL_ID"),
 
   // 주간 기억 다이제스트: navis가 정기적으로 최근 기억을 요약해 자기이해 프로필에
   // 반영하고(자동 압축), 요약을 디스코드로 보고한다. namory의 수동 profile_update

@@ -3,13 +3,14 @@ import { config } from "../config.js";
 import { buildCronTools, CRON_TOOL_NAMES } from "../cron/mcp.js";
 import { buildRepoTools, REPO_TOOL_NAMES } from "../repo/mcp.js";
 import { buildSelfModifyTools, SELF_MODIFY_TOOL_NAMES } from "../self-modify/mcp.js";
+import { buildGoogleTools, GOOGLE_TOOL_NAMES } from "../google/mcp.js";
+import { isCalendarEnabled } from "../google/auth.js";
 import {
   BUILTIN_TOOLS,
   NAMORY_PROFILE_UPDATE_TOOL,
   NAMORY_TOOLS,
 } from "./allowed-tools.js";
 import {
-  httpMcp,
   notionStdio,
   type McpHttpServer,
   type McpStdioServer,
@@ -75,7 +76,11 @@ export async function askClaude(
   // GitHub PR 로만 결과 확인 가능. webhook 매핑용 channelId 는 있을 때만 클로저로 묶인다.
   const selfModifyServer = buildSelfModifyTools(channelId);
 
-  // 선택 외부 연동(노션/구글). env에 토큰이 있을 때만 설정이 채워진다.
+  // 구글 캘린더 in-process MCP. env 셋(client/secret/refresh) 다 채워졌을 때만 활성.
+  // CLI/디스코드 모드 모두 노출 — 일정 조회·생성은 어느 채널이든 동일하게 의미 있음.
+  const googleServer = isCalendarEnabled() ? buildGoogleTools() : undefined;
+
+  // 선택 외부 연동(노션). env에 토큰이 있을 때만 설정이 채워진다.
   // 서버 단위로 allowedTools에 `mcp__<name>` 을 넣어 그 서버의 모든 도구를 자동 승인.
   const extraServers: Record<string, McpHttpServer | McpStdioServer> = {};
   const extraToolNames: string[] = [];
@@ -83,10 +88,6 @@ export async function askClaude(
     // 노션은 OAuth 회피용 self-host stdio (내부 통합 토큰만 주입).
     extraServers.notion = notionStdio(config.notionToken);
     extraToolNames.push("mcp__notion");
-  }
-  if (config.google) {
-    extraServers.google = httpMcp(config.google);
-    extraToolNames.push("mcp__google");
   }
 
   // 프로젝트 컨텍스트가 있으면 시스템 프롬프트에 부속문을 합성. 코드로 강제 인젝션
@@ -124,6 +125,7 @@ export async function askClaude(
         ...(cronServer ? { cron: cronServer } : {}),
         repo: repoServer,
         self_modify: selfModifyServer,
+        ...(googleServer ? { google: googleServer } : {}),
         ...extraServers,
       },
       // 자동 승인 도구: namory + 내장(파일/셸/웹/탐색) + repo 조회 + (대화 중이면) 크론·자기개선 + 부가 연동.
@@ -135,6 +137,7 @@ export async function askClaude(
         ...(cronServer ? CRON_TOOL_NAMES : []),
         ...REPO_TOOL_NAMES,
         ...SELF_MODIFY_TOOL_NAMES,
+        ...(googleServer ? GOOGLE_TOOL_NAMES : []),
         ...BUILTIN_TOOLS,
         ...extraToolNames,
       ],
