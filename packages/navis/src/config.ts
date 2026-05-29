@@ -94,6 +94,7 @@ export const config = {
   model: "claude-sonnet-4-6",
   // 큐레이터(사후 저장 판단)용 경량 모델. 메인 모델보다 저렴하고 빠른 Haiku 사용.
   curatorModel: "claude-haiku-4-5-20251001",
+  reviewModel: process.env.NAVIS_REVIEW_MODEL ?? "claude-sonnet-4-6",
 
   // 대화 맥락 유지 한도(토큰). 한 대화의 컨텍스트가 이걸 넘으면 다음 메시지부터
   // 새 세션으로 리셋하고 사용자에게 알린다. 잊힌 맥락은 namory가 받쳐줌.
