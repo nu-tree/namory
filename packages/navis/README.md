@@ -35,13 +35,25 @@ src/
 │   └── types.ts         # InputImage, AskResult
 ├── discord/
 │   ├── bot.ts           # startDiscord + handleMessage
+│   ├── sessions.ts      # 채널→세션 맵 (bot/followup 공용)
 │   ├── image.ts         # 첨부 이미지 다운로드/리사이즈
 │   └── send.ts          # chunk + sendToChannel (공통)
-└── cron/
-    ├── scheduler.ts     # node-cron 등록·동기화
-    ├── api.ts           # namory /crons REST 클라이언트
-    └── mcp.ts           # 모델이 호출하는 cron_{create,list,delete}
+├── cron/
+│   ├── scheduler.ts     # node-cron 등록·동기화
+│   ├── api.ts           # namory /crons REST 클라이언트
+│   └── mcp.ts           # 모델이 호출하는 cron_{create,list,delete}
+└── followup/
+    ├── decide.ts        # 자발적 팔로업 판단 (Haiku, JSON 출력)
+    └── scheduler.ts     # 지연 발송 + awaiting 상태 + 세션 리셋
 ```
+
+### 자발적 팔로업
+
+매 턴이 끝나면 Haiku 서브에이전트가 "이 대화의 결과를 나중에 navis 가 먼저 물어볼
+가치가 있는가" 를 판단해, 가치 있으면 30~720분 사이로 짧은 후속 질문("곱도리탕
+맛있었어요?")을 채널에 자동 전송한다. 사용자가 답하면 사후 큐레이터가 "팔로업
+응답" 으로 인식해 결과를 namory 에 저장한다. in-memory(컨테이너 재시작 시 손실 —
+cron/calendar 와 동일 정책). 새 턴이 들어오면 기존 예약은 자동 취소.
 
 ## 셋업
 
