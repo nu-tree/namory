@@ -8,8 +8,9 @@ import {
 import { config } from "../config.js";
 import { askClaude } from "../claude/ask.js";
 import { curateTurn } from "../claude/curator.js";
+import { checkFollowup } from "../claude/followup.js";
 import { collectImages } from "./image.js";
-import { chunk } from "./send.js";
+import { chunk, sendToChannel } from "./send.js";
 
 // 채널(DM 포함)별 진행 중인 대화 세션. in-memory라 재시작하면 사라진다(의도된 것 —
 // 영속 맥락은 namory가 담당). contextTokens가 한도를 넘으면 다음 메시지에서 새 세션.
@@ -134,6 +135,25 @@ async function handleMessage(message: Message): Promise<void> {
     // 사후 큐레이터(A) — 답변을 보낸 뒤 백그라운드로 한 번 더 평가해 저장 누락을 메운다.
     // fire-and-forget: 사용자 UX는 끝났고 큐레이터 실패는 무시(자체 try/catch).
     void curateTurn({ userText: prompt, assistantText: text });
+
+    // 사후 팔로업 판단기 — "나중에 결과가 궁금한가?"를 LLM이 자체 판단해서
+    // 일정 시간 후 같은 채널에 후속 질문을 자연스럽게 던진다(예: "곱도리탕 맛있었어요?").
+    // fire-and-forget: 실패는 삼키고 사용자 UX엔 영향 없음. 인메모리 setTimeout이라
+    // 프로세스 재시작 시 사라진다(의도된 것 — 영속 큐는 과한 복잡도).
+    if (text && text !== "(빈 응답)") {
+      const client = message.client;
+      checkFollowup({ userText: prompt, assistantText: text })
+        .then((fu) => {
+          if (!fu.followup || !fu.question || !fu.delayHours) return;
+          const delayMs = fu.delayHours * 60 * 60 * 1000;
+          setTimeout(() => {
+            sendToChannel(client, channelId, fu.question!, "followup").catch(
+              (e) => console.error("[followup] 전송 실패:", e),
+            );
+          }, delayMs);
+        })
+        .catch((e) => console.error("[followup] 체크 실패:", e));
+    }
   } catch (err) {
     console.error("[discord] 처리 실패:", err);
     await message.reply("⚠️ 처리 중 오류가 났어요. 로그를 확인해주세요.");
