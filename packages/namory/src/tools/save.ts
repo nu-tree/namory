@@ -59,6 +59,8 @@ export async function save(args: {
   // 기본 true — 임계값 이상 유사 기억이 있으면 저장하지 않고 후보만 반환한다
   // (skipped:true). 의도적으로 중복을 허용해 두 번 강조하고 싶으면 false 명시.
   skipIfDuplicate?: boolean;
+  tags?: string[];
+  related_ids?: string[];
 }): Promise<SaveResult> {
   const embedding = await embed(args.content, "document");
   const duplicates = await findDuplicates(embedding, args.project);
@@ -69,7 +71,11 @@ export async function save(args: {
   }
 
   // 할 일은 "상태"가 있다 → metadata에 done 플래그를 심어 둔다 (열림으로 시작).
-  const metadata = args.category === "todo" ? { done: false, doneAt: null } : {};
+  const metadata: Record<string, unknown> =
+    args.category === "todo" ? { done: false, doneAt: null } : {};
+  if (args.tags && args.tags.length > 0) metadata.tags = args.tags;
+  if (args.related_ids && args.related_ids.length > 0)
+    metadata.related_ids = args.related_ids;
   const [row] = await db
     .insert(memories)
     .values({
