@@ -54,6 +54,18 @@ export async function runDigest(): Promise<void> {
     }
   } catch (err) {
     console.error("[digest] 실행 실패:", err);
+    if (config.navisChannelId && discord) {
+      try {
+        await sendToChannel(
+          discord,
+          config.navisChannelId,
+          `[다이제스트] 실행 실패: ${err instanceof Error ? err.message : String(err)}`,
+          "digest",
+        );
+      } catch {
+        // Discord 알림 실패는 무시 (이미 console.error로 기록됨)
+      }
+    }
   }
 }
 
