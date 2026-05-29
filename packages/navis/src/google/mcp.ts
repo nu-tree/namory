@@ -132,7 +132,7 @@ export function buildGoogleTools(): McpSdkServerConfigWithInstance {
       ),
       tool(
         "create_event",
-        "본인 Primary 캘린더에 새 일정 생성. 시작/끝은 ISO8601(타임존 포함, 예: 2026-06-01T15:00:00+09:00). 종일은 YYYY-MM-DD.",
+        "본인 Primary 캘린더에 새 일정 생성. 시작/끝은 ISO8601(타임존 포함, 예: 2026-06-01T15:00:00+09:00). 종일은 YYYY-MM-DD. 반복 일정은 recurrence 파라미터에 RRULE 배열로 전달 (예: 매년 반복 → [\"RRULE:FREQ=YEARLY\"]).",
         {
           summary: z.string().min(1).describe("일정 제목"),
           start: z.string().min(1).describe("시작 시각 ISO8601 또는 YYYY-MM-DD(종일)"),
@@ -143,6 +143,7 @@ export function buildGoogleTools(): McpSdkServerConfigWithInstance {
             .array(z.string().email())
             .optional()
             .describe("참가자 이메일 목록"),
+          recurrence: z.array(z.string()).optional().describe("반복 규칙 (예: [\"RRULE:FREQ=YEARLY\"])"),
         },
         async (args) => {
           if (!isCalendarEnabled()) return err("Google 캘린더 비활성 — env 미설정");
@@ -163,6 +164,7 @@ export function buildGoogleTools(): McpSdkServerConfigWithInstance {
               start: startField,
               end: endField,
               attendees: args.attendees?.map((email) => ({ email })),
+              recurrence: args.recurrence,
             },
           });
           return ok(JSON.stringify(compactEvent(res.data), null, 2));
@@ -179,6 +181,7 @@ export function buildGoogleTools(): McpSdkServerConfigWithInstance {
           description: z.string().optional(),
           location: z.string().optional(),
           attendees: z.array(z.string().email()).optional(),
+          recurrence: z.array(z.string()).optional().describe("반복 규칙 (예: [\"RRULE:FREQ=YEARLY\"])"),
         },
         async (args) => {
           if (!isCalendarEnabled()) return err("Google 캘린더 비활성 — env 미설정");
@@ -201,6 +204,7 @@ export function buildGoogleTools(): McpSdkServerConfigWithInstance {
           if (args.attendees !== undefined) {
             body.attendees = args.attendees.map((email) => ({ email }));
           }
+          if (args.recurrence !== undefined) body.recurrence = args.recurrence;
           const res = await cal.events.patch({
             calendarId: "primary",
             eventId: args.eventId,
