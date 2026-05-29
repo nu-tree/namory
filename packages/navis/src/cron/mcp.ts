@@ -5,7 +5,7 @@ import {
 } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import cron from "node-cron";
-import { createCronRemote, deleteCronRemote, fetchCrons } from "./api.js";
+import { createCronRemote, deleteCronRemote, fetchCrons, patchCronRemote } from "./api.js";
 import { scheduleCron, unscheduleCron } from "./scheduler.js";
 
 const ok = (text: string) => ({ content: [{ type: "text" as const, text }] });
@@ -62,6 +62,26 @@ export function buildCronTools(channelId: string): McpSdkServerConfigWithInstanc
           return ok(`삭제 완료 — ${args.id}`);
         },
       ),
+      tool(
+        "cron_toggle",
+        "정기 알림(크론)을 활성화/비활성화한다. 삭제하지 않고 일시 중지하거나 다시 켤 때 사용. 먼저 cron_list로 id를 확인하라.",
+        {
+          id: z.string().min(1).describe("토글할 크론 id"),
+          enabled: z.boolean().describe("true=활성화, false=비활성화"),
+        },
+        async (args) => {
+          await patchCronRemote(args.id, { enabled: args.enabled });
+          if (args.enabled) {
+            // 활성화 시 스케줄러에도 즉시 반영
+            const rows = await fetchCrons();
+            const row = rows.find((r) => r.id === args.id);
+            if (row) scheduleCron(row);
+          } else {
+            unscheduleCron(args.id);
+          }
+          return ok(`${args.enabled ? "활성화" : "비활성화"} 완료 — ${args.id}`);
+        },
+      ),
     ],
   });
 }
@@ -71,4 +91,5 @@ export const CRON_TOOL_NAMES = [
   "mcp__cron__cron_create",
   "mcp__cron__cron_list",
   "mcp__cron__cron_delete",
+  "mcp__cron__cron_toggle",
 ];

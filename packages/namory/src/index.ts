@@ -1,7 +1,7 @@
 import Fastify from "fastify";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { buildMcpServer } from "./mcp.js";
-import { listCrons, createCron, deleteCron } from "./tools/cron.js";
+import { listCrons, createCron, deleteCron, updateCron } from "./tools/cron.js";
 
 const app = Fastify({
   logger: {
@@ -97,6 +97,21 @@ app.post("/crons", async (req, reply) => {
 app.delete<{ Params: { id: string } }>("/crons/:id", async (req, reply) => {
   try {
     return await deleteCron({ id: req.params.id });
+  } catch {
+    return reply.code(404).send({ error: "해당 id의 크론이 없습니다" });
+  }
+});
+
+app.patch<{ Params: { id: string } }>("/crons/:id", async (req, reply) => {
+  const b = (req.body ?? {}) as Record<string, unknown>;
+  const patches: { enabled?: boolean; lastRunAt?: Date } = {};
+  if (typeof b.enabled === "boolean") patches.enabled = b.enabled;
+  if (typeof b.lastRunAt === "string") patches.lastRunAt = new Date(b.lastRunAt);
+  if (Object.keys(patches).length === 0) {
+    return reply.code(400).send({ error: "enabled 또는 lastRunAt 중 하나 이상 필요" });
+  }
+  try {
+    return await updateCron({ id: req.params.id, ...patches });
   } catch {
     return reply.code(404).send({ error: "해당 id의 크론이 없습니다" });
   }

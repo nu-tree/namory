@@ -11,6 +11,7 @@ export interface CronRow {
   prompt: string;
   channelId: string;
   enabled: boolean;
+  lastRunAt: string | null;
 }
 
 // namoryMcpUrl(".../mcp")에서 베이스 URL을 떼어 REST(/crons)에 쓴다.
@@ -43,4 +44,18 @@ export async function createCronRemote(input: {
 export async function deleteCronRemote(id: string): Promise<void> {
   const res = await fetch(`${BASE}/crons/${id}`, { method: "DELETE", headers: auth });
   if (!res.ok) throw new Error(`크론 삭제 실패: ${res.status}`);
+}
+
+export async function patchCronRemote(
+  id: string,
+  patches: { enabled?: boolean; lastRunAt?: string },
+): Promise<void> {
+  const res = await fetch(`${BASE}/crons/${id}`, {
+    method: "PATCH",
+    headers: { ...auth, "content-type": "application/json" },
+    body: JSON.stringify(patches),
+  });
+  // 실패해도 스케줄러 흐름은 막지 않는다 (로그만).
+  if (!res.ok)
+    console.error(`[cron] lastRunAt 업데이트 실패: ${res.status}`);
 }

@@ -38,3 +38,21 @@ export async function deleteCron(args: { id: string }) {
   if (!row) throw new Error(`해당 id의 크론이 없습니다: ${args.id}`);
   return row;
 }
+
+export async function updateCron(args: {
+  id: string;
+  enabled?: boolean;
+  lastRunAt?: Date;
+}) {
+  const patches: Partial<typeof crons.$inferInsert> = {};
+  if (args.enabled !== undefined) patches.enabled = args.enabled;
+  if (args.lastRunAt !== undefined) patches.lastRunAt = args.lastRunAt;
+  if (Object.keys(patches).length === 0) return;
+  const [row] = await db
+    .update(crons)
+    .set(patches)
+    .where(eq(crons.id, args.id))
+    .returning();
+  if (!row) throw new Error(`해당 id의 크론이 없습니다: ${args.id}`);
+  return row;
+}
