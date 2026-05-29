@@ -1,4 +1,4 @@
-import { sql, cosineDistance, desc, and } from "drizzle-orm";
+import { sql, cosineDistance, desc } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { memories, type Category } from "../db/schema.js";
 import { embed } from "../embedding.js";
@@ -43,7 +43,7 @@ async function findDuplicates(
       similarity,
     })
     .from(memories)
-    .where(and(projectFilter(project)))
+    .where(projectFilter(project))
     .orderBy(desc(similarity))
     .limit(dupPool);
   return rows
